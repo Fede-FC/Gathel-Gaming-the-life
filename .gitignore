@@ -1,0 +1,81 @@
+# Claude Code documentation (local only)
+CLAUDE.md
+
+# Windows Zone Identifier
+*:Zone.Identifier
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.iml
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node.js / Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.Python
+
+# Java / Backend
+target/
+*.jar
+*.war
+.gradle/
+*.class
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.mdb
+
+# Docker
+.dockerignore
+
+# Build artifacts
+bin/
+obj/
+out/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+.TemporaryItems
+.VolumeIcon.icns
+
+# Windows
+$RECYCLE.BIN/
+ehthumbs.db
