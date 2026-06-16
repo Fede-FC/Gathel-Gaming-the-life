@@ -10,15 +10,18 @@ Gathel es una plataforma digital de predicciones basada en acciones y eventos de
 
 ## 📊 Estado del proyecto
 
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| **1. Diseño de BD** | Especificación, análisis de IA, DBML | ✅ Completada |
-| **2. Flyway** | Migraciones versionadas + seeding | ⏳ Por iniciar |
-| **3. Security Lab** | Roles, permisos, RLS, Data Masking, cifrado | ⏳ Por iniciar |
-| **4. Transacciones y concurrencia** | SPs anidados, deadlocks, aislamiento | ⏳ Por iniciar |
-| **5. Backend MVP** | REST API (ORM lectura + SP escritura) | ⏳ Por iniciar |
-| **6. Frontend MVP** | UI web/Android | ⏳ Por iniciar |
-| **7. Docker** | `docker-compose` | ⏳ Por iniciar |
+| Fase | Descripción | Estado | Entregas |
+|------|-------------|--------|----------|
+| **1. Diseño de BD** | Especificación, análisis de IA, DBML | ✅ Completada | specification.md, design.dbml, 4 análisis IA |
+| **2. Flyway** | Migraciones versionadas + seeding | ✅ Completada | V1-V4, Docker Compose, flyway.conf, docs |
+| **3. Security Lab** | Roles, permisos, RLS, Data Masking, cifrado | ✅ Completada | 5 demos, README.md, Master Key, 4 roles |
+| **4. Transacciones y concurrencia** | SPs anidados, deadlocks, aislamiento | ⏳ EN PROGRESO | (scripts en desarrollo) |
+| **5. Backend MVP** | REST API (ORM lectura + SP escritura) | ❌ Pendiente | - |
+| **6. Frontend MVP** | UI web/Android | ❌ Pendiente | - |
+| **7. Docker** | `docker-compose` | ✅ Completada | docker-compose.yml, DOCKER.md |
+| **8. Documentación** | README, API, DEPLOYMENT | ⏳ EN PROGRESO | CLAUDE.md actualizado |
+
+**Progreso: 4/8 completadas (50%), 3 en progreso (37.5%), 1 pendiente (12.5%)**
 
 Detalle de fases y cronograma: [`CLAUDE.md`](./CLAUDE.md)
 
@@ -47,6 +50,32 @@ Gathel-Gaming-the-life/
                 ├── 04_escalabilidad.md
                 └── RESUMEN_MEJORAS.md
 ```
+
+---
+
+## 🚀 Quick Start (Docker Compose)
+
+```bash
+# 1. Iniciar SQL Server + Flyway automáticamente
+./scripts/docker-setup.sh up
+
+# 2. Esperar ~2 minutos a que se inicialicen y ejecuten migraciones
+
+# 3. Conectarse a SQL Server
+./scripts/docker-setup.sh sql
+
+# Dentro de sqlcmd:
+SELECT COUNT(*) FROM dbo.Player;           -- ~1000
+SELECT COUNT(*) FROM dbo.Proposition;      -- ~5000
+SELECT COUNT(*) FROM dbo.[Transaction];    -- ~107k
+GO
+EXIT
+```
+
+**Ver logs:** `./scripts/docker-setup.sh logs`  
+**Detener:** `./scripts/docker-setup.sh down`
+
+Guía completa: [`DOCKER.md`](./DOCKER.md)
 
 ---
 
@@ -98,6 +127,114 @@ El diseño fue auditado por agentes de IA especializados desde múltiples ángul
 ### Mejoras incorporadas al diseño a partir del análisis
 
 A partir de las recomendaciones se aplicaron, entre otros, los siguientes cambios sobre la especificación (de v1.0 a v2.0):
+
+---
+
+## 📦 Fase 2 — Gestión de Migraciones (Flyway)
+
+### Migraciones SQL versionadas
+
+4 migraciones automáticas que crean y populan la base de datos:
+
+| Migración | Contenido | Líneas |
+|-----------|-----------|--------|
+| **V1__init_schema.sql** | 16 tablas, 11+ índices covering/filtrados, constraints, 1 trigger | 443 |
+| **V2__stored_procedures.sql** | 12 SPs transaccionales (registro, proposiciones, predicciones, resoluciones) | 1,091 |
+| **V3__seeding.sql** | 1000 jugadores, 5000 proposiciones, ~250k GameEvents, 107k+ transacciones | 1,150 |
+| **V4__security_setup.sql** | Master Key, Certificate, Symmetric Key, 4 roles, 4 logins, RLS, Data Masking | 550+ |
+
+**Total: ~3,200 líneas de SQL**
+
+### Datos de demo en BD
+
+```
+┌─────────────────────┬────────┐
+│ Tabla               │ Filas  │
+├─────────────────────┼────────┤
+│ Player              │ 1,000  │
+│ Proposition         │ 5,000  │
+│ GameEvent           │ ~250K  │
+│ Transaction         │ ~107K  │
+│ Prediction          │ ~83K   │
+│ Vote                │ ~34K   │
+│ AIReviewLog         │ 4,250  │
+│ PropositionEvidence │ 2,000  │
+│ SocialAccount       │ 1,000  │
+└─────────────────────┴────────┘
+```
+
+### Ejecución automática
+
+- `docker-compose.yml` descarga SQL Server + Flyway automáticamente
+- `flyway.conf` parametrizado para local o Docker
+- `scripts/docker-setup.sh` simplifica comandos
+
+Guía: [`docs/FLYWAY.md`](./docs/FLYWAY.md)
+
+---
+
+## 🔒 Fase 3 — Security Lab
+
+### Implementación de seguridad
+
+Todos los requisitos del caso cumplidos:
+
+| Requisito | Implementación |
+|-----------|----------------|
+| **Usuarios de prueba** | 4 logins SQL (admin, system, player, readonly) |
+| **Roles con permisos** | 4 roles con permisos diferenciados por nivel de acceso |
+| **Permisos directos vs heredados** | GRANT/DENY explícitos + herencia vía roles |
+| **Escenarios de acceso** | SELECT sin permiso, acceso via SP, acceso denegado |
+| **Data Masking** | email, balance_points, account_username enmascarados |
+| **Row-Level Security (RLS)** | Tabla Transaction protegida; jugadores solo ven sus filas |
+| **Cifrado con Master Key** | Symmetric Key + Certificate + demo encrypt/decrypt |
+| **Documentación** | 5 scripts de demostración + README.md |
+
+### Scripts de demostración
+
+Ejecutar manualmente después de Flyway:
+
+```bash
+# Desde la BD GathelDB:
+sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/01_master_key_cert.sql
+sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/02_roles_users.sql
+sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/03_permissions_demo.sql
+sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/04_data_masking.sql
+sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/05_rls.sql
+```
+
+Guía: [`src/database/security-lab/README.md`](./src/database/security-lab/README.md)
+
+---
+
+## 🐳 Fase 7 — Docker & Fase 2/3 Integration
+
+### Docker Compose (automatización completa)
+
+```yaml
+services:
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports: 1433
+    healthcheck: verifica puerto TCP
+
+  flyway:
+    image: flyway/flyway:9.22.3
+    depends_on: sql-server (healthy)
+    comando: migrate (V1 → V4 automáticamente)
+```
+
+### Herramientas helper
+
+```bash
+./scripts/docker-setup.sh up          # Iniciar todo
+./scripts/docker-setup.sh down        # Detener
+./scripts/docker-setup.sh sql         # Conectar a BD
+./scripts/docker-setup.sh logs        # Ver logs en vivo
+./scripts/docker-setup.sh rebuild     # Limpiar y reiniciar
+```
+
+Guía: [`DOCKER.md`](./DOCKER.md)
 
 - **Seguridad:** nueva tabla `PropositionAudit` (auditoría campo por campo vía trigger); campos `encryption_key_id`, `last_used_at`, `rotation_count` en `SocialAccountSession`; `balance_version` (optimistic locking) en `Player`; `checksum_timestamp` en `Proposition`; políticas RLS sobre `Transaction` y `Vote`; Data Masking en campos sensibles; CHECK `ISJSON()` en `GameEvent` y `AIReviewLog`.
 - **Normalización:** validaciones CHECK (`creator <> target`, `amount > 0`); triggers de sincronización de balance; `ON DELETE RESTRICT` donde corresponde.
