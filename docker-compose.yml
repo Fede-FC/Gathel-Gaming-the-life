@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # SQL Server 2022
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: gathel-sql-server
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "GathelPassword123!Secure"
+      MSSQL_PID: "Express"
+    ports:
+      - "1433:1433"
+    volumes:
+      # Persistir datos en disco local
+      - sql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/bin/bash", "-c", "echo > /dev/tcp/127.0.0.1/1433"]
+      interval: 10s
+      timeout: 3s
+      retries: 40
+      start_period: 60s
+    networks:
+      - gathel-network
+
+  # Flyway para migraciones
+  flyway:
+    image: flyway/flyway:9.22.3-alpine
+    container_name: gathel-flyway
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: "jdbc:sqlserver://sql-server:1433;databaseName=GathelDB;encrypt=true;trustServerCertificate=true;authentication=SqlPassword;"
+      FLYWAY_USER: "sa"
+      FLYWAY_PASSWORD: "GathelPassword123!Secure"
+      FLYWAY_LOCATIONS: "filesystem:/flyway/migrations"
+      FLYWAY_BASELINE_ON_MIGRATE: "true"
+      FLYWAY_OUT_OF_ORDER: "false"
+      FLYWAY_VALIDATE_ON_MIGRATE: "true"
+    volumes:
+      # Montar scripts SQL en el contenedor
+      - ./src/database/flyway/migrations:/flyway/migrations:ro
+    networks:
+      - gathel-network
+    command: ["migrate"]
+
+  # (Opcional) SSMS o cliente SQL para testing manual
+  # Si quieres conectarte desde tu máquina:
+  # Host: localhost:1433
+  # User: sa
+  # Password: GathelPassword123!Secure
+  # Database: GathelDB
+
+volumes:
+  sql-data:
+
+networks:
+  gathel-network:
+    driver: bridge

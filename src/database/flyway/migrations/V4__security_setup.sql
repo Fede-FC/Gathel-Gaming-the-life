@@ -48,7 +48,8 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'db_gathel_admin' AND type = 'R')
 BEGIN
     CREATE ROLE db_gathel_admin;
-    GRANT db_datareader, db_datawriter TO db_gathel_admin;
+    ALTER ROLE db_datareader ADD MEMBER db_gathel_admin;
+    ALTER ROLE db_datawriter ADD MEMBER db_gathel_admin;
     GRANT EXECUTE TO db_gathel_admin;
     GRANT UNMASK TO db_gathel_admin;  -- Para ver datos enmascarados
     PRINT 'Rol db_gathel_admin creado.';
@@ -143,27 +144,33 @@ GO
 -- ==============================================================================
 
 -- Aplicar masking al email (patrón: a***@***.com)
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'email' AND object_id = OBJECT_ID('dbo.Player') AND masking_function IS NOT NULL)
-BEGIN
+BEGIN TRY
     ALTER TABLE dbo.Player ALTER COLUMN email ADD MASKED WITH (FUNCTION = 'email()');
     PRINT 'Data Masking aplicado a Player.email.';
-END
+END TRY
+BEGIN CATCH
+    PRINT 'Data Masking ya existe en Player.email o error: ' + ERROR_MESSAGE();
+END CATCH
 GO
 
 -- Aplicar masking a balance_points (solo admins ven el valor real)
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'balance_points' AND object_id = OBJECT_ID('dbo.Player') AND masking_function IS NOT NULL)
-BEGIN
+BEGIN TRY
     ALTER TABLE dbo.Player ALTER COLUMN balance_points ADD MASKED WITH (FUNCTION = 'default()');
     PRINT 'Data Masking aplicado a Player.balance_points.';
-END
+END TRY
+BEGIN CATCH
+    PRINT 'Data Masking ya existe en Player.balance_points o error: ' + ERROR_MESSAGE();
+END CATCH
 GO
 
 -- Aplicar masking a account_username en SocialAccount
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'account_username' AND object_id = OBJECT_ID('dbo.SocialAccount') AND masking_function IS NOT NULL)
-BEGIN
+BEGIN TRY
     ALTER TABLE dbo.SocialAccount ALTER COLUMN account_username ADD MASKED WITH (FUNCTION = 'partial(1,"***",0)');
     PRINT 'Data Masking aplicado a SocialAccount.account_username.';
-END
+END TRY
+BEGIN CATCH
+    PRINT 'Data Masking ya existe en SocialAccount.account_username o error: ' + ERROR_MESSAGE();
+END CATCH
 GO
 
 -- ==============================================================================
@@ -172,27 +179,31 @@ GO
 -- ==============================================================================
 
 -- Función de predicado RLS
-IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE name = 'fn_TransactionRLS' AND type = 'IF')
-BEGIN
-    CREATE FUNCTION dbo.fn_TransactionRLS(@player_id INT)
-    RETURNS TABLE AS RETURN
-    SELECT 1 AS access
-    WHERE @player_id = TRY_CAST(SESSION_CONTEXT(N'player_id') AS INT)
-       OR IS_MEMBER('db_owner') = 1
-       OR IS_MEMBER('db_gathel_admin') = 1;
-    PRINT 'Función fn_TransactionRLS creada.';
-END
+DROP FUNCTION IF EXISTS dbo.fn_TransactionRLS;
+GO
+
+CREATE FUNCTION dbo.fn_TransactionRLS(@player_id INT)
+RETURNS TABLE WITH SCHEMABINDING AS RETURN
+SELECT 1 AS access
+WHERE @player_id = TRY_CAST(SESSION_CONTEXT(N'player_id') AS INT)
+   OR IS_MEMBER('db_owner') = 1
+   OR IS_MEMBER('db_gathel_admin') = 1;
+GO
+
+PRINT 'Función fn_TransactionRLS creada.';
 GO
 
 -- Crear Security Policy con RLS
-IF NOT EXISTS (SELECT 1 FROM sys.security_policies WHERE name = 'TransactionSecurityPolicy')
-BEGIN
-    CREATE SECURITY POLICY dbo.TransactionSecurityPolicy
-    ADD FILTER PREDICATE dbo.fn_TransactionRLS(player_id)
-    ON dbo.[Transaction]
-    WITH (STATE = ON);
-    PRINT 'Security Policy TransactionSecurityPolicy creada (RLS activa).';
-END
+DROP SECURITY POLICY IF EXISTS dbo.TransactionSecurityPolicy;
+GO
+
+CREATE SECURITY POLICY dbo.TransactionSecurityPolicy
+ADD FILTER PREDICATE dbo.fn_TransactionRLS(player_id)
+ON dbo.[Transaction]
+WITH (STATE = ON);
+GO
+
+PRINT 'Security Policy TransactionSecurityPolicy creada (RLS activa).';
 GO
 
 -- ==============================================================================
@@ -235,42 +246,44 @@ GO
 -- ==============================================================================
 
 -- Vista: Balance de jugador (con masking aplicado si el usuario no es admin)
-IF NOT EXISTS (SELECT 1 FROM sys.views WHERE name = 'vw_PlayerBalance')
-BEGIN
-    CREATE VIEW dbo.vw_PlayerBalance AS
-    SELECT
-        player_id,
-        username,
-        display_name,
-        email,  -- Enmascarado si no es admin
-        balance_points,  -- Enmascarado si no es admin
-        enabled,
-        created_at
-    FROM dbo.Player
-    WHERE enabled = 1;
+DROP VIEW IF EXISTS dbo.vw_PlayerBalance;
+GO
 
-    PRINT 'Vista vw_PlayerBalance creada.';
-END
+CREATE VIEW dbo.vw_PlayerBalance AS
+SELECT
+    player_id,
+    username,
+    display_name,
+    email,  -- Enmascarado si no es admin
+    balance_points,  -- Enmascarado si no es admin
+    enabled,
+    created_at
+FROM dbo.Player
+WHERE enabled = 1;
+GO
+
+PRINT 'Vista vw_PlayerBalance creada.';
 GO
 
 -- Vista: Transacciones del usuario (para demostrar RLS)
-IF NOT EXISTS (SELECT 1 FROM sys.views WHERE name = 'vw_MyTransactions')
-BEGIN
-    CREATE VIEW dbo.vw_MyTransactions AS
-    SELECT
-        transaction_id,
-        player_id,
-        amount,
-        currency_type_id,
-        running_balance,
-        transaction_type_id,
-        reference_type,
-        created_at
-    FROM dbo.[Transaction]
-    WHERE player_id = TRY_CAST(SESSION_CONTEXT(N'player_id') AS INT);
+DROP VIEW IF EXISTS dbo.vw_MyTransactions;
+GO
 
-    PRINT 'Vista vw_MyTransactions creada.';
-END
+CREATE VIEW dbo.vw_MyTransactions AS
+SELECT
+    transaction_id,
+    player_id,
+    amount,
+    currency_type_id,
+    running_balance,
+    transaction_type_id,
+    reference_type,
+    created_at
+FROM dbo.[Transaction]
+WHERE player_id = TRY_CAST(SESSION_CONTEXT(N'player_id') AS INT);
+GO
+
+PRINT 'Vista vw_MyTransactions creada.';
 GO
 
 -- ==============================================================================
