@@ -1,320 +1,282 @@
-# Gathel Gaming - Setup con Docker Compose
+# Gathel Gaming — Setup con Docker Compose
 
-Guía rápida para ejecutar Gathel con Docker (sin instalar SQL Server ni Flyway localmente).
-
-## 🚀 Quick Start (2 pasos)
-
-### Paso 1: Tener Docker instalado
-
-```bash
-# Verificar que Docker está instalado
-docker --version
-# Debería mostrar: Docker version 20.x.x o superior
-
-# Si no lo tienes:
-# Windows/Mac: https://www.docker.com/products/docker-desktop
-# Linux: sudo apt-get install docker.io docker-compose
-```
-
-### Paso 2: Ejecutar Gathel
-
-```bash
-# En la raíz del proyecto
-./scripts/docker-setup.sh up
-
-# Espera ~60 segundos mientras se inician los contenedores
-# Verás los logs de Flyway ejecutando las migraciones V1-V5
-```
-
-**¡Listo!** SQL Server + Base de datos + Datos + Seguridad + Concurrencia todo funcionando.
+Guía para levantar el stack completo de Gathel con Docker: SQL Server, Flyway, Backend (FastAPI) y Frontend (React).
 
 ---
 
-## 📋 Qué Está Pasando Internamente
+## 🚀 Quick Start (2 pasos)
+
+### Paso 1: Verificar Docker
+
+```bash
+docker --version        # Docker 20.x o superior
+docker compose version  # v2.x (incluido en Docker Desktop)
+```
+
+### Paso 2: Levantar todo
+
+```bash
+# En la raíz del proyecto
+docker compose up --build -d
+
+# Seguir las migraciones de Flyway (tarda ~3-4 min)
+docker compose logs flyway --follow
+```
+
+Cuando Flyway muestre `Successfully applied 6 migrations`, el stack está listo:
+
+| Servicio | URL |
+|----------|-----|
+| **Frontend** | http://localhost:3000 |
+| **Backend (Swagger)** | http://localhost:8000/docs |
+| **SQL Server** | localhost:1433 |
+
+**Credenciales demo:**  
+Usuario: `demo_admin` — Contraseña: `Password123!`  
+(Cualquier jugador del seeding también usa `Password123!`)
+
+---
+
+## 📋 Qué está pasando internamente
 
 ```
 Tu máquina (localhost)
     ↓
 docker-compose.yml
-    ├─ Contenedor: sql-server
-    │   ├─ Imagen: mcr.microsoft.com/mssql/server:2022-latest
+    ├─ sql-server       (mcr.microsoft.com/mssql/server:2022-latest)
     │   ├─ Puerto: 1433
     │   └─ Volumen: sql-data (persiste datos)
     │
-    ├─ Contenedor: db-init  (se ejecuta una sola vez)
-    │   ├─ Imagen: mcr.microsoft.com/mssql-tools
+    ├─ db-init          (mssql-tools — se ejecuta una sola vez)
     │   └─ Crea la BD GathelDB si no existe (idempotente)
     │
-    └─ Contenedor: flyway
-        ├─ Imagen: flyway/flyway:9.22.3-alpine
-        ├─ Monta: ./src/database/flyway/migrations
-        └─ Ejecuta: V1, V2, V3, V4, V5 automáticamente
+    ├─ flyway           (flyway/flyway:9.22.3-alpine — se ejecuta una sola vez)
+    │   └─ Aplica V1 → V6 automáticamente (~3-4 min)
+    │
+    ├─ backend          (Python 3.11 + FastAPI + pymssql)
+    │   └─ Puerto: 8000
+    │
+    └─ frontend         (node:20 build → nginx:alpine serve)
+        └─ Puerto: 3000 → nginx proxea /api/* a backend:8000
 ```
 
-**Lo importante**: 
-- Flyway está **DENTRO** del contenedor Docker, no en tu máquina
-- SQL Server está **DENTRO** de otro contenedor
-- Tu máquina solo tiene el código del proyecto y Docker
+### Orden de arranque
+
+```
+sql-server (healthy) → db-init → flyway → backend → frontend
+```
+
+Todos los servicios después de `flyway` esperan que las migraciones terminen antes de iniciar.
 
 ---
 
-## 🛠️ Comandos Útiles
+## 🛠️ Comandos útiles
 
-### Ver estado
+### Ver estado de los contenedores
+
 ```bash
-./scripts/docker-setup.sh status
+docker compose ps
 ```
 
-**Salida esperada**:
+Salida esperada (cuando todo está corriendo):
+
 ```
 NAME                STATUS
-gathel-sql-server   Up 2 minutes (healthy)
+gathel-sql-server   Up X minutes (healthy)
 gathel-db-init      Exited (0)
 gathel-flyway       Exited (0)
+gathel-backend      Up X minutes
+gathel-frontend     Up X minutes
 ```
 
-✓ `sql-server`: Debe estar `Up` y `healthy`
-✓ `db-init`: Puede estar `Exited (0)` (creó la BD y terminó)
-✓ `flyway`: Puede estar `Exited (0)` (completó V1-V5 y terminó)
-
----
+- `sql-server`: debe estar `Up` y `(healthy)`
+- `db-init` y `flyway`: `Exited (0)` es correcto (terminaron su trabajo)
+- `backend` y `frontend`: deben estar `Up`
 
 ### Ver logs
+
 ```bash
-./scripts/docker-setup.sh logs
-```
+# Todos los servicios
+docker compose logs
 
-Verás algo como:
+# Un servicio específico (en vivo)
+docker compose logs backend --follow
+docker compose logs flyway --follow
 ```
-flyway    | Flyway 9.22.3
-flyway    | Successfully applied 5 migrations to schema [dbo], now at version v5
-flyway    | (execution time ~60s)
-```
-
----
 
 ### Conectarse a SQL Server
+
+```bash
+# Con el helper
+./scripts/docker-setup.sh sql
+
+# O directamente con sqlcmd
+sqlcmd -S localhost,1433 -U sa -P "GathelPassword123!Secure" -d GathelDB
+```
+
+### Detener sin borrar datos
+
+```bash
+docker compose down
+# El volumen sql-data persiste; al hacer "up" de nuevo los datos siguen ahí
+```
+
+### Limpiar todo y reiniciar desde cero
+
+```bash
+docker compose down -v    # borra el volumen sql-data
+docker compose up --build -d
+```
+
+---
+
+## 🔍 Verificación completa
+
+### 1. Base de datos
+
 ```bash
 ./scripts/docker-setup.sh sql
 
-# O manualmente con sqlcmd:
-sqlcmd -S localhost -U sa -P GathelPassword123!Secure -d GathelDB
-
-# Luego ejecutar queries SQL:
-> SELECT COUNT(*) FROM dbo.Player;
-> GO
-```
-
----
-
-### Ejecutar migraciones manualmente
-```bash
-./scripts/docker-setup.sh migrate
-```
-
-(Normalmente ya se ejecutan automáticamente con `up`)
-
----
-
-### Detener los contenedores
-```bash
-./scripts/docker-setup.sh down
-
-# Los datos persisten en el volumen sql-data
-# Si ejecutas `./scripts/docker-setup.sh up` de nuevo, verás los mismos datos
-```
-
----
-
-### Limpiar todo (DESTRUCTIVO)
-```bash
-./scripts/docker-setup.sh clean
-# Elimina datos de la BD
-
-./scripts/docker-setup.sh rebuild
-# Detiene, elimina volumen, reinicia, migra todo de nuevo
-```
-
----
-
-## 🔍 Verificación Completa
-
-Después de `./scripts/docker-setup.sh up`:
-
-### 1. Verificar que SQL Server está corriendo
-```bash
-docker ps
-```
-
-Deberías ver:
-```
-IMAGE                                   STATUS
-mcr.microsoft.com/mssql/server:2022...  Up X minutes (healthy)
-```
-
-### 2. Conectar a BD y verificar datos
-```bash
-./scripts/docker-setup.sh sql
-
-# Dentro de sqlcmd:
-SELECT COUNT(*) FROM dbo.Player;          -- 1000
+-- Verificar datos del seeding
+SELECT COUNT(*) FROM dbo.Player;          -- 1001
 SELECT COUNT(*) FROM dbo.Proposition;     -- 5000
-SELECT COUNT(*) FROM dbo.[Transaction];   -- ~111,000+
-SELECT COUNT(*) FROM dbo.GameEvent;       -- 250,000
+SELECT COUNT(*) FROM dbo.[Transaction];   -- ~107,000+
+SELECT COUNT(*) FROM dbo.GameEvent;       -- ~250,000
 
--- Ver roles
-SELECT name FROM sys.database_principals WHERE name LIKE 'db_gathel%';
-
--- Ver si Flyway registró migraciones
-SELECT version, description FROM flyway_schema_history;
+-- Verificar migraciones de Flyway
+SELECT version, description, success FROM dbo.flyway_schema_history ORDER BY installed_rank;
 
 EXIT
 ```
 
-### 3. Verificar RLS y Masking
+### 2. Backend
+
 ```bash
-./scripts/docker-setup.sh sql
+# Healthcheck
+curl http://localhost:8000/api/health
+# → {"status":"ok","service":"gathel-backend"}
 
--- Data Masking
-SELECT TOP 1 email FROM dbo.Player;  -- Como admin, ve email real
--- Resultado: sofia.garcia1@gathel.dev
+# Login
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo_admin","password":"Password123!"}'
+# → {"access_token":"...","player_id":1001,"username":"demo_admin",...}
+```
 
--- RLS
-SELECT name FROM sys.security_policies;  -- Debería ver TransactionSecurityPolicy
+### 3. Frontend
 
-EXIT
+Abrir `http://localhost:3000` en el navegador → aparece la pantalla de login.  
+Ingresar `demo_admin` / `Password123!` → redirige al Dashboard.
+
+### 4. Seguridad (RLS y Masking)
+
+```sql
+-- Desde sqlcmd como sa (ve datos reales)
+SELECT TOP 1 email FROM dbo.Player;         -- email real
+SELECT name FROM sys.security_policies;     -- TransactionSecurityPolicy
+SELECT name FROM sys.database_principals WHERE name LIKE 'db_gathel%';
 ```
 
 ---
 
-## ⚙️ Configuración (si necesitas cambiar credenciales)
+## ⚙️ Configuración
 
-Edita `docker-compose.yml`:
+Las credenciales y variables de entorno están en `docker-compose.yml`:
 
-```yaml
-sql-server:
-  environment:
-    MSSQL_SA_PASSWORD: "TU_PASSWORD_AQUI"  # Cambiar aquí
-```
+| Variable | Valor por defecto | Servicio |
+|----------|-------------------|----------|
+| `MSSQL_SA_PASSWORD` | `GathelPassword123!Secure` | sql-server |
+| `DB_HOST` | `sql-server` | backend |
+| `DB_PORT` | `1433` | backend |
+| `DB_NAME` | `GathelDB` | backend |
+| `DB_USER` | `sa` | backend |
+| `DB_PASSWORD` | `GathelPassword123!Secure` | backend |
+| `JWT_SECRET` | `gathel-jwt-secret-change-in-production` | backend |
 
-También en `scripts/docker-setup.sh` y `src/database/flyway/flyway.conf`:
-
-```properties
-flyway.password=${FLYWAY_PASSWORD:TU_PASSWORD_AQUI}
-```
+Para cambiar el password: actualizarlo en todas las variables de `docker-compose.yml` y en `src/database/flyway/flyway.conf`.
 
 ---
 
-## 🔗 Conectar desde tu Aplicación (Backend)
+## 🔗 Conectarse desde fuera de Docker
 
-### Si tu app está en Docker también
+### Backend (desde tu máquina o Postman)
 
-En `docker-compose.yml`, usa el nombre del servicio como host:
-
-```javascript
-// Node.js
-const connection = new sql.Connection({
-  server: 'sql-server',        // nombre del servicio en docker-compose
-  authentication: { type: 'default', options: { userName: 'sa', password: 'GathelPassword123!Secure' } },
-  options: { database: 'GathelDB', encrypt: false }
-});
+```
+Base URL: http://localhost:8000
+Swagger:  http://localhost:8000/docs
 ```
 
-### Si tu app está en tu máquina (local)
+### SQL Server (desde SSMS, Azure Data Studio, etc.)
 
-```javascript
-// Node.js
-const connection = new sql.Connection({
-  server: 'localhost',         // en tu máquina
-  authentication: { type: 'default', options: { userName: 'sa', password: 'GathelPassword123!Secure' } },
-  options: { database: 'GathelDB', encrypt: false }
-});
+```
+Server:   localhost,1433
+Login:    sa
+Password: GathelPassword123!Secure
+Database: GathelDB
+Encrypt:  opcional (trustServerCertificate=true)
 ```
 
 ---
 
 ## ❓ Troubleshooting
 
-### Error: "Cannot find docker"
-```
-Instala Docker Desktop: https://www.docker.com/products/docker-desktop
-```
+### Flyway falla con "Migration checksum mismatch"
 
-### Error: "docker-compose: command not found"
+Los archivos de migración cambiaron después de ser aplicados. Solución:
+
 ```bash
-# Instalar docker-compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+docker compose down -v
+docker compose up --build -d
 ```
 
-### Error: "Port 1433 is already in use"
+### El backend no conecta a SQL Server
+
+Verificar que Flyway terminó exitosamente antes de que el backend intente conectar:
+
 ```bash
-# Otra app usa el puerto. Opciones:
-
-# A) Detener la otra app
-# B) Cambiar puerto en docker-compose.yml:
-#    ports:
-#      - "1434:1433"  ← usar puerto 1434
-
-# C) Listar qué usa el puerto
-lsof -i :1433  # macOS/Linux
-netstat -ano | findstr :1433  # Windows
+docker compose logs flyway | tail -5
+# Debe mostrar: "Successfully applied 6 migrations"
 ```
 
-### Error: "Flyway migration failed"
-```bash
-# Ver logs detallados
-docker-compose logs flyway
+Si el backend arrancó antes que Flyway termine, reiniciarlo:
 
-# Si hay problema con los scripts SQL:
-# 1. Verificar sintaxis en src/database/flyway/migrations/
-# 2. Limpiar y reintentar:
-./scripts/docker-setup.sh rebuild
+```bash
+docker compose restart backend
 ```
 
-### Error: "Database already exists"
+### Error "Port 1433/8000/3000 already in use"
+
+Otra aplicación usa el puerto. Cambiar el puerto externo en `docker-compose.yml`:
+
+```yaml
+ports:
+  - "1434:1433"   # usar 1434 en lugar de 1433
+```
+
+### El frontend muestra errores de red (`ERR_CONNECTION_REFUSED`)
+
+El backend no está corriendo. Verificar:
+
 ```bash
-# Cleanar BD y reintentar
-./scripts/docker-setup.sh clean
-./scripts/docker-setup.sh up
+docker compose ps backend   # debe estar "Up"
+docker compose logs backend --follow
 ```
 
 ---
 
-## 📊 Diferencia: Docker vs Local
+## 📊 Scripts helper
 
-| Aspecto | Docker Compose | Local |
-|---------|---|---|
-| **Instalaciones** | Solo Docker | SQL Server + Flyway + sqlcmd |
-| **Configuración** | Un archivo (docker-compose.yml) | Variables de entorno + PATH |
-| **Datos** | Volumen Docker (persisten) | Carpeta local |
-| **Portabilidad** | 100% (funciona en cualquier PC con Docker) | Depende del SO |
-| **Seguridad** | Aislado en contenedor | Sistema abierto |
-| **Velocidad** | Más lenta (virtualización) | Más rápida (nativa) |
-
----
-
-## 🚀 Próximos Pasos
-
-Una vez que `./scripts/docker-setup.sh up` funcione:
-
-1. **Verifica datos**:
-   ```bash
-   ./scripts/docker-setup.sh sql
-   SELECT COUNT(*) FROM dbo.Player;
-   ```
-
-2. **Ejecuta demos de Security Lab** (desde SSMS conectado a localhost:1433):
-   - `src/database/security-lab/01_master_key_cert.sql`
-   - `src/database/security-lab/02_roles_users.sql`
-   - etc. (ver `src/database/security-lab/README.md`)
-
-3. **Ejecuta demos de Concurrencia** (requiere múltiples ventanas SSMS):
-   - Ver instrucciones en `src/database/concurrency/README.md`
-   - Los SPs `usp_DL_*` y `usp_IL_*` ya están instalados por V5
+```bash
+./scripts/docker-setup.sh up        # Iniciar todo
+./scripts/docker-setup.sh down      # Detener (conserva datos)
+./scripts/docker-setup.sh sql       # Conectar a BD via sqlcmd
+./scripts/docker-setup.sh logs      # Ver logs en vivo
+./scripts/docker-setup.sh rebuild   # Limpiar y reiniciar desde cero
+./scripts/docker-setup.sh status    # Estado de los contenedores
+```
 
 ---
 
-**Versión**: 1.1  
+**Versión**: 2.0  
 **Fecha**: 17 Junio 2026  
-**Status**: ✅ Docker Compose configurado — V1-V5 (Fases 1-4) completadas
+**Status**: ✅ Stack completo — V1-V6 (Fases 1-8) completadas

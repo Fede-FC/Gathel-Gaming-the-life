@@ -62,12 +62,46 @@ services:
       - gathel-network
     command: ["migrate"]
 
-  # (Opcional) SSMS o cliente SQL para testing manual
-  # Si quieres conectarte desde tu máquina:
-  # Host: localhost:1433
-  # User: sa
-  # Password: GathelPassword123!Secure
-  # Database: GathelDB
+  # Backend — FastAPI REST API
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: gathel-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: sql-server
+      DB_PORT: "1433"
+      DB_NAME: GathelDB
+      DB_USER: sa
+      DB_PASSWORD: "GathelPassword123!Secure"
+      JWT_SECRET: "gathel-jwt-secret-change-in-production"
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+    networks:
+      - gathel-network
+    restart: unless-stopped
+
+  # Frontend — React + nginx
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: gathel-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - gathel-network
+    restart: unless-stopped
+
+  # Conexión manual desde tu máquina:
+  # SQL Server  → localhost:1433  (sa / GathelPassword123!Secure / GathelDB)
+  # Backend API → http://localhost:8000/docs
+  # Frontend    → http://localhost:3000
 
 volumes:
   sql-data:

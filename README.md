@@ -13,17 +13,40 @@ Gathel es una plataforma digital de predicciones basada en acciones y eventos de
 | Fase | Descripción | Estado | Entregas |
 |------|-------------|--------|----------|
 | **1. Diseño de BD** | Especificación, análisis de IA, DBML | ✅ Completada | specification.md, design.dbml, 4 análisis IA |
-| **2. Flyway** | Migraciones versionadas + seeding | ✅ Completada | V1-V4, Docker Compose, flyway.conf, docs |
+| **2. Flyway** | Migraciones versionadas + seeding | ✅ Completada | V1-V6, Docker Compose, flyway.conf, docs |
 | **3. Security Lab** | Roles, permisos, RLS, Data Masking, cifrado | ✅ Completada | 5 demos, README.md, Master Key, 4 roles |
-| **4. Transacciones y concurrencia** | SPs anidados, deadlocks, aislamiento | ⏳ EN PROGRESO | (scripts en desarrollo) |
-| **5. Backend MVP** | REST API (ORM lectura + SP escritura) | ❌ Pendiente | - |
-| **6. Frontend MVP** | UI web/Android | ❌ Pendiente | - |
-| **7. Docker** | `docker-compose` | ✅ Completada | docker-compose.yml, DOCKER.md |
-| **8. Documentación** | README, API, DEPLOYMENT | ⏳ EN PROGRESO | CLAUDE.md actualizado |
+| **4. Transacciones y concurrencia** | SPs anidados, deadlocks, aislamiento | ✅ Completada | 5 scripts, 18 SPs, 4 niveles de aislamiento |
+| **5. Backend MVP** | REST API (ORM lectura + SP escritura) | ✅ Completada | FastAPI, 5 endpoints, JWT, connection pool |
+| **6. Frontend MVP** | UI web | ✅ Completada | React + Vite, 4 páginas, nginx |
+| **7. Docker** | `docker-compose` completo | ✅ Completada | 5 servicios, build automático |
+| **8. Documentación** | README, DOCKER, FLYWAY, CLAUDE | ✅ Completada | Todos los docs actualizados |
 
-**Progreso: 4/8 completadas (50%), 3 en progreso (37.5%), 1 pendiente (12.5%)**
+**Progreso: 8/8 fases completadas (100%)**
 
 Detalle de fases y cronograma: [`CLAUDE.md`](./CLAUDE.md)
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# Levantar todo (SQL Server + Migraciones + Backend + Frontend)
+docker compose up --build -d
+
+# Esperar ~3-4 minutos a que Flyway termine las migraciones
+docker compose logs flyway --follow
+
+# Una vez que flyway muestre "Successfully applied 6 migrations":
+# Frontend → http://localhost:3000
+# Backend  → http://localhost:8000/docs  (Swagger UI)
+# SQL Server → localhost:1433  (sa / GathelPassword123!Secure / GathelDB)
+```
+
+**Credenciales demo:**
+- Usuario: `demo_admin` — Contraseña: `Password123!`
+- Cualquier jugador del seeding también usa `Password123!`
+
+Guía completa: [`DOCKER.md`](./DOCKER.md)
 
 ---
 
@@ -31,51 +54,73 @@ Detalle de fases y cronograma: [`CLAUDE.md`](./CLAUDE.md)
 
 ```
 Gathel-Gaming-the-life/
-├── README.md                       # Este archivo
-├── CLAUDE.md                       # Plan de desarrollo y cronograma
-├── caso #3.md                      # Especificación original del caso
-└── src/
-    └── database/
-        └── design/                 # Diseño de la base de datos (Fase 1)
-            ├── specification.md    # Especificación del modelo (fuente de verdad)
-            ├── design.dbml         # Diagrama DBML (generado desde la spec)
-            ├── relaciones.md       # Mapa conceptual de relaciones
-            ├── casos-uso.md        # Validación del diseño contra el caso
-            ├── FEEDBACK.md         # Feedback del profesor incorporado
-            └── ai-analysis/        # Revisión del diseño por agentes de IA
-                ├── PROMPTS.md
-                ├── 01_seguridad_analisis.md
-                ├── 02_indices_performance.md
-                ├── 03_normalizacion_diseno.md
-                ├── 04_escalabilidad.md
-                └── RESUMEN_MEJORAS.md
+├── README.md
+├── CLAUDE.md                           # Plan de desarrollo y cronograma
+├── DOCKER.md                           # Guía Docker Compose
+├── docker-compose.yml                  # 5 servicios: sql-server, db-init, flyway, backend, frontend
+├── caso #3.md                          # Especificación original del caso
+├── scripts/
+│   └── docker-setup.sh                 # Helper para comandos Docker
+├── src/
+│   ├── database/
+│   │   ├── design/                     # Fase 1 — Diseño de BD
+│   │   │   ├── specification.md
+│   │   │   ├── design.dbml
+│   │   │   └── ai-analysis/
+│   │   ├── flyway/
+│   │   │   └── migrations/             # Fase 2 — Migraciones V1-V6
+│   │   │       ├── V1__init_schema.sql
+│   │   │       ├── V2__stored_procedures.sql
+│   │   │       ├── V3__seeding.sql
+│   │   │       ├── V4__security_setup.sql
+│   │   │       ├── V5__concurrency_transactions.sql
+│   │   │       └── V6__demo_passwords.sql
+│   │   ├── security-lab/               # Fase 3 — Demos de seguridad
+│   │   │   ├── 01_master_key_cert.sql
+│   │   │   ├── 02_roles_users.sql
+│   │   │   ├── 03_permissions_demo.sql
+│   │   │   ├── 04_data_masking.sql
+│   │   │   ├── 05_rls.sql
+│   │   │   └── README.md
+│   │   └── concurrency/                # Fase 4 — Demos de concurrencia
+│   │       ├── 01_nested_transactions.sql
+│   │       ├── 02_deadlock_writes.sql
+│   │       ├── 03_deadlock_read_write.sql
+│   │       ├── 04_deadlock_cyclic.sql
+│   │       ├── 05_isolation_levels.sql
+│   │       └── README.md
+│   ├── backend/                        # Fase 5 — REST API (FastAPI)
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   └── app/
+│   │       ├── main.py
+│   │       ├── database.py
+│   │       ├── models.py
+│   │       ├── schemas.py
+│   │       ├── auth.py
+│   │       └── routers/
+│   │           ├── auth.py
+│   │           ├── players.py
+│   │           ├── propositions.py
+│   │           └── predictions.py
+│   └── frontend/                       # Fase 6 — UI (React + Vite)
+│       ├── Dockerfile
+│       ├── nginx.conf
+│       ├── vite.config.js
+│       └── src/
+│           ├── App.jsx
+│           ├── index.css
+│           ├── api/client.js
+│           ├── context/AuthContext.jsx
+│           ├── components/Navbar.jsx
+│           └── pages/
+│               ├── Login.jsx
+│               ├── Dashboard.jsx
+│               ├── Propositions.jsx
+│               └── Results.jsx
+└── docs/
+    └── FLYWAY.md
 ```
-
----
-
-## 🚀 Quick Start (Docker Compose)
-
-```bash
-# 1. Iniciar SQL Server + Flyway automáticamente
-./scripts/docker-setup.sh up
-
-# 2. Esperar ~2 minutos a que se inicialicen y ejecuten migraciones
-
-# 3. Conectarse a SQL Server
-./scripts/docker-setup.sh sql
-
-# Dentro de sqlcmd:
-SELECT COUNT(*) FROM dbo.Player;           -- ~1000
-SELECT COUNT(*) FROM dbo.Proposition;      -- ~5000
-SELECT COUNT(*) FROM dbo.[Transaction];    -- ~107k
-GO
-EXIT
-```
-
-**Ver logs:** `./scripts/docker-setup.sh logs`  
-**Detener:** `./scripts/docker-setup.sh down`
-
-Guía completa: [`DOCKER.md`](./DOCKER.md)
 
 ---
 
@@ -86,10 +131,7 @@ Guía completa: [`DOCKER.md`](./DOCKER.md)
 | Documento | Descripción |
 |-----------|-------------|
 | [`specification.md`](./src/database/design/specification.md) | **Fuente de verdad.** Especificación en Markdown de todas las tablas, campos, restricciones, índices, vistas, estrategia de seguridad y reglas de negocio. |
-| [`design.dbml`](./src/database/design/design.dbml) | Diagrama en formato DBML generado a partir de la especificación. Importable en [dbdiagram.io](https://dbdiagram.io). |
-| [`relaciones.md`](./src/database/design/relaciones.md) | Mapa visual/conceptual de las relaciones entre tablas. |
-| [`casos-uso.md`](./src/database/design/casos-uso.md) | Casos de uso que validan que el diseño cubre el caso sin ambigüedades. |
-| [`FEEDBACK.md`](./src/database/design/FEEDBACK.md) | Puntos de mejora del profesor y cómo se incorporaron. |
+| [`design.dbml`](./src/database/design/design.dbml) | Diagrama en formato DBML. Importable en [dbdiagram.io](https://dbdiagram.io). |
 
 ### Modelo de datos (resumen)
 
@@ -104,29 +146,19 @@ Guía completa: [`DOCKER.md`](./DOCKER.md)
 ### Decisiones de diseño destacadas
 
 - **Transacciones unificadas:** una sola tabla `Transaction` + catálogo `CurrencyType` soporta N monedas (puntos, USD, etc.) sin agregar tablas.
-- **Tasas de cambio con histórico:** `ExchangeRate` guarda la tasa por fecha (la tasa no es propiedad estática de la moneda).
-- **Un monto, una moneda:** `Prediction` usa `amount` + `currency_type_id` en lugar de campos paralelos; predecir con "ambos" = dos filas.
-- **Tokens en tabla aparte:** `SocialAccountSession` aísla los tokens que rotan, protegidos con Always Encrypted.
-- **Sin hardcoding:** tasas, configuraciones y constantes viven en catálogos/tablas, no en código.
+- **Tasas de cambio con histórico:** `ExchangeRate` guarda la tasa por fecha.
+- **Un monto, una moneda:** `Prediction` usa `amount` + `currency_type_id`; predecir con "ambos" = dos filas.
+- **Tokens en tabla aparte:** `SocialAccountSession` aísla los tokens con Always Encrypted.
+- **Sin hardcoding:** tasas, configuraciones y constantes viven en catálogos/tablas.
 
----
+### Revisión por agentes de IA
 
-## 🤖 Revisión por agentes de IA
-
-El diseño fue auditado por agentes de IA especializados desde múltiples ángulos. Los prompts utilizados están documentados para reproducibilidad.
-
-| Documento | Enfoque | Hallazgos clave |
-|-----------|---------|-----------------|
-| [`PROMPTS.md`](./src/database/design/ai-analysis/PROMPTS.md) | Definición de los agentes | Prompts de cada experto de IA |
-| [`01_seguridad_analisis.md`](./src/database/design/ai-analysis/01_seguridad_analisis.md) | Seguridad | Cifrado de tokens, auditoría de proposiciones, RLS, validación JSON, race conditions |
-| [`02_indices_performance.md`](./src/database/design/ai-analysis/02_indices_performance.md) | Índices y rendimiento | Índices covering/filtrados para las queries críticas |
-| [`03_normalizacion_diseno.md`](./src/database/design/ai-analysis/03_normalizacion_diseno.md) | Normalización | 3NF/BCNF; desnormalizaciones intencionales justificadas; anomalías mitigadas |
-| [`04_escalabilidad.md`](./src/database/design/ai-analysis/04_escalabilidad.md) | Escalabilidad | Proyecciones de crecimiento; particionamiento/sharding como roadmap futuro |
-| [`RESUMEN_MEJORAS.md`](./src/database/design/ai-analysis/RESUMEN_MEJORAS.md) | Síntesis | Consolidación de las cuatro revisiones |
-
-### Mejoras incorporadas al diseño a partir del análisis
-
-A partir de las recomendaciones se aplicaron, entre otros, los siguientes cambios sobre la especificación (de v1.0 a v2.0):
+| Documento | Enfoque |
+|-----------|---------|
+| [`01_seguridad_analisis.md`](./src/database/design/ai-analysis/01_seguridad_analisis.md) | Cifrado, auditoría, RLS, race conditions |
+| [`02_indices_performance.md`](./src/database/design/ai-analysis/02_indices_performance.md) | Índices covering/filtrados para queries críticas |
+| [`03_normalizacion_diseno.md`](./src/database/design/ai-analysis/03_normalizacion_diseno.md) | 3NF/BCNF; desnormalizaciones justificadas |
+| [`04_escalabilidad.md`](./src/database/design/ai-analysis/04_escalabilidad.md) | Proyecciones de crecimiento; roadmap futuro |
 
 ---
 
@@ -134,24 +166,24 @@ A partir de las recomendaciones se aplicaron, entre otros, los siguientes cambio
 
 ### Migraciones SQL versionadas
 
-4 migraciones automáticas que crean y populan la base de datos:
+| Migración | Contenido |
+|-----------|-----------|
+| **V1__init_schema.sql** | 16 tablas, 11+ índices covering/filtrados, constraints, 1 trigger |
+| **V2__stored_procedures.sql** | 12 SPs transaccionales (registro, proposiciones, predicciones, resoluciones) |
+| **V3__seeding.sql** | 1,000 jugadores, 5,000 proposiciones, ~250K GameEvents, 107K+ transacciones |
+| **V4__security_setup.sql** | Master Key, Certificate, Symmetric Key, 4 roles, 4 logins, RLS, Data Masking |
+| **V5__concurrency_transactions.sql** | 18 SPs para demos de transacciones anidadas, deadlocks y niveles de aislamiento |
+| **V6__demo_passwords.sql** | Resetea passwords a `Password123!`; crea jugador `demo_admin` con 5,000 pts |
 
-| Migración | Contenido | Líneas |
-|-----------|-----------|--------|
-| **V1__init_schema.sql** | 16 tablas, 11+ índices covering/filtrados, constraints, 1 trigger | 443 |
-| **V2__stored_procedures.sql** | 12 SPs transaccionales (registro, proposiciones, predicciones, resoluciones) | 1,091 |
-| **V3__seeding.sql** | 1000 jugadores, 5000 proposiciones, ~250k GameEvents, 107k+ transacciones | 1,150 |
-| **V4__security_setup.sql** | Master Key, Certificate, Symmetric Key, 4 roles, 4 logins, RLS, Data Masking | 550+ |
+**Total: ~4,500 líneas de SQL**
 
-**Total: ~3,200 líneas de SQL**
-
-### Datos de demo en BD
+### Datos en BD
 
 ```
 ┌─────────────────────┬────────┐
 │ Tabla               │ Filas  │
 ├─────────────────────┼────────┤
-│ Player              │ 1,000  │
+│ Player              │ 1,001  │
 │ Proposition         │ 5,000  │
 │ GameEvent           │ ~250K  │
 │ Transaction         │ ~107K  │
@@ -163,21 +195,11 @@ A partir de las recomendaciones se aplicaron, entre otros, los siguientes cambio
 └─────────────────────┴────────┘
 ```
 
-### Ejecución automática
-
-- `docker-compose.yml` descarga SQL Server + Flyway automáticamente
-- `flyway.conf` parametrizado para local o Docker
-- `scripts/docker-setup.sh` simplifica comandos
-
 Guía: [`docs/FLYWAY.md`](./docs/FLYWAY.md)
 
 ---
 
 ## 🔒 Fase 3 — Security Lab
-
-### Implementación de seguridad
-
-Todos los requisitos del caso cumplidos:
 
 | Requisito | Implementación |
 |-----------|----------------|
@@ -188,74 +210,99 @@ Todos los requisitos del caso cumplidos:
 | **Data Masking** | email, balance_points, account_username enmascarados |
 | **Row-Level Security (RLS)** | Tabla Transaction protegida; jugadores solo ven sus filas |
 | **Cifrado con Master Key** | Symmetric Key + Certificate + demo encrypt/decrypt |
-| **Documentación** | 5 scripts de demostración + README.md |
 
-### Scripts de demostración
+Scripts de demo: [`src/database/security-lab/`](./src/database/security-lab/)
 
-Ejecutar manualmente después de Flyway:
+---
 
-```bash
-# Desde la BD GathelDB:
-sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/01_master_key_cert.sql
-sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/02_roles_users.sql
-sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/03_permissions_demo.sql
-sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/04_data_masking.sql
-sqlcmd -U sa -P 'GathelPassword123!Secure' -d GathelDB -i src/database/security-lab/05_rls.sql
+## ⚡ Fase 4 — Transacciones y Concurrencia
+
+| Script | Demostración |
+|--------|--------------|
+| `01_nested_transactions.sql` | SPs anidados L1→L2→L3 con savepoints; flujo exitoso y rollback en cascada |
+| `02_deadlock_writes.sql` | Deadlock por escrituras concurrentes en orden inverso |
+| `03_deadlock_read_write.sql` | Deadlock lectura + escritura con HOLDLOCK |
+| `04_deadlock_cyclic.sql` | Deadlock cíclico T1→T2→T3→T1 |
+| `05_isolation_levels.sql` | READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, SERIALIZABLE |
+
+Documentación completa con análisis de mitigaciones: [`src/database/concurrency/README.md`](./src/database/concurrency/README.md)
+
+---
+
+## 🖥️ Fase 5 — Backend MVP (FastAPI)
+
+### Stack
+
+- **Lenguaje:** Python 3.11
+- **Framework:** FastAPI + Uvicorn
+- **BD driver:** pymssql (FreeTDS — sin instalación de ODBC)
+- **ORM:** SQLAlchemy 2.0 (solo para lecturas)
+- **Escrituras:** Stored Procedures vía `text()` (cumple requisito del caso)
+- **Autenticación:** JWT con `python-jose`
+- **Pool:** fijo `pool_size=5, max_overflow=0` (cumple requisito del caso)
+
+### Endpoints
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/api/auth/login` | Login → JWT |
+| `POST` | `/api/auth/logout` | Logout (stateless) |
+| `GET` | `/api/players/me` | Balance y actividad del jugador |
+| `GET` | `/api/propositions/active` | Proposiciones activas (paginadas) |
+| `GET` | `/api/propositions/results` | Resultados de proposiciones del jugador |
+| `POST` | `/api/propositions` | Crear proposición |
+| `POST` | `/api/predictions` | Realizar predicción |
+| `GET` | `/api/health` | Healthcheck |
+
+**Swagger UI:** `http://localhost:8000/docs`
+
+---
+
+## 🌐 Fase 6 — Frontend MVP (React)
+
+### Stack
+
+- **Framework:** React 18 + Vite
+- **Routing:** React Router DOM v7
+- **HTTP:** Axios con interceptor de Bearer token
+- **Servidor:** nginx (multi-stage Docker build)
+
+### Páginas
+
+| Ruta | Página | Función |
+|------|--------|---------|
+| `/login` | Login | Formulario de acceso con hint de credenciales demo |
+| `/` | Dashboard | Balance de puntos y última actividad |
+| `/propositions` | Proposiciones | Lista activas, crear nueva, realizar predicción |
+| `/results` | Resultados | Historial de proposiciones finalizadas |
+
+---
+
+## 🐳 Fase 7 — Docker Compose
+
+### Servicios
+
+```
+localhost
+  ├── :3000  → Frontend (React + nginx)
+  │               └── /api/* → proxy a backend:8000
+  ├── :8000  → Backend (FastAPI)
+  │               └── pymssql → sql-server:1433
+  └── :1433  → SQL Server 2022
 ```
 
-Guía: [`src/database/security-lab/README.md`](./src/database/security-lab/README.md)
+### Flujo de arranque
 
----
-
-## 🐳 Fase 7 — Docker & Fase 2/3 Integration
-
-### Docker Compose (automatización completa)
-
-```yaml
-services:
-  sql-server:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    ports: 1433
-    healthcheck: verifica puerto TCP
-
-  flyway:
-    image: flyway/flyway:9.22.3
-    depends_on: sql-server (healthy)
-    comando: migrate (V1 → V4 automáticamente)
+```
+sql-server (healthy)
+    └── db-init (crea GathelDB)
+            └── flyway (V1 → V6, ~3-4 min)
+                    └── backend (FastAPI)
+                            └── frontend (nginx)
 ```
 
-### Herramientas helper
-
-```bash
-./scripts/docker-setup.sh up          # Iniciar todo
-./scripts/docker-setup.sh down        # Detener
-./scripts/docker-setup.sh sql         # Conectar a BD
-./scripts/docker-setup.sh logs        # Ver logs en vivo
-./scripts/docker-setup.sh rebuild     # Limpiar y reiniciar
-```
-
-Guía: [`DOCKER.md`](./DOCKER.md)
-
-- **Seguridad:** nueva tabla `PropositionAudit` (auditoría campo por campo vía trigger); campos `encryption_key_id`, `last_used_at`, `rotation_count` en `SocialAccountSession`; `balance_version` (optimistic locking) en `Player`; `checksum_timestamp` en `Proposition`; políticas RLS sobre `Transaction` y `Vote`; Data Masking en campos sensibles; CHECK `ISJSON()` en `GameEvent` y `AIReviewLog`.
-- **Normalización:** validaciones CHECK (`creator <> target`, `amount > 0`); triggers de sincronización de balance; `ON DELETE RESTRICT` donde corresponde.
-- **Rendimiento:** 17 índices covering/filtrados para las queries críticas del MVP.
-- **Escalabilidad:** se documenta como **fuera de alcance** para el MVP académico (particionamiento, sharding, archivamiento); pensado como roadmap a >500K jugadores.
-
-> **Alcance:** por tratarse de un MVP académico con bajo volumen de datos, no se implementa particionamiento ni sharding. El foco está en diseño correcto, seguridad y cumplimiento del caso.
+Guía completa: [`DOCKER.md`](./DOCKER.md)
 
 ---
 
-## 🔐 Regla de negocio destacada — visibilidad de votos
-
-El caso establece que **ningún jugador puede ver cuántos votos tiene una proposición; sólo el jugador objetivo (target) puede**. Esto se implementa con **Row-Level Security sobre `Vote`**: cada jugador ve únicamente su propio voto (necesario para la validación de unicidad), el target ve todos los votos de sus proposiciones, y el rol Admin ve todo. El conteo real sólo se expone vía la vista `vw_proposition_vote_counts`, protegida por esa RLS.
-
----
-
-## 🚀 Próximos pasos
-
-1. Generar el **PDF** del diagrama desde `design.dbml` para revisión con el profesor.
-2. Iniciar **Fase 2 (Flyway):** instalación/configuración y migración `V1` del esquema.
-
----
-
-**Última actualización:** 13 de Junio de 2026
+**Última actualización:** 17 de Junio de 2026
