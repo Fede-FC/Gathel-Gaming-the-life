@@ -249,14 +249,16 @@ BEGIN
 
     BEGIN TRANSACTION;
     BEGIN TRY
-        DECLARE @predicted_outcome BIT = 1;
+        DECLARE @direction   BIT = 1;
+        DECLARE @currency_id INT;
+        SELECT @currency_id = currency_type_id FROM dbo.CurrencyType WHERE currency_code = 'POINTS';
 
         -- Este INSERT quedará BLOQUEADO mientras usp_IL_Serializable_Reader
         -- tenga abierta su transacción SERIALIZABLE con key-range locks.
         INSERT INTO dbo.Prediction
-            (player_id, proposition_id, predicted_outcome, amount_points, created_at, updated_at)
+            (player_id, proposition_id, direction, amount, currency_type_id, created_at, updated_at)
         VALUES
-            (@player_id, @proposition_id, @predicted_outcome, 1, GETUTCDATE(), GETUTCDATE());
+            (@player_id, @proposition_id, @direction, 1, @currency_id, GETUTCDATE(), GETUTCDATE());
 
         COMMIT TRANSACTION;
         PRINT 'Escritor: INSERT completado (el lector ya hizo COMMIT).';
@@ -288,9 +290,9 @@ GO
 ── DEMO 3: PHANTOM READ (REPEATABLE READ) ─────────────────────────────────────
   Ventana 1: EXEC dbo.usp_IL_PhantomRead @proposition_id = 1;
   Ventana 2 (durante los 6 s de espera):
-             INSERT INTO dbo.Prediction (player_id, proposition_id, predicted_outcome,
-                         amount_points, created_at, updated_at)
-             VALUES (3, 1, 0, 1, GETUTCDATE(), GETUTCDATE());
+             INSERT INTO dbo.Prediction (player_id, proposition_id, direction,
+                         amount, currency_type_id, created_at, updated_at)
+             VALUES (3, 1, 0, 1, (SELECT currency_type_id FROM dbo.CurrencyType WHERE currency_code='POINTS'), GETUTCDATE(), GETUTCDATE());
              COMMIT;
   Resultado: La segunda lectura de ventana 1 muestra una fila más.
 

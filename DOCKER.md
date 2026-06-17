@@ -22,11 +22,11 @@ docker --version
 # En la raíz del proyecto
 ./scripts/docker-setup.sh up
 
-# Espera ~30 segundos mientras se inician los contenedores
-# Verás los logs de Flyway ejecutando las migraciones V1-V4
+# Espera ~60 segundos mientras se inician los contenedores
+# Verás los logs de Flyway ejecutando las migraciones V1-V5
 ```
 
-**¡Listo!** SQL Server + Base de datos + Datos + Seguridad todo funcionando.
+**¡Listo!** SQL Server + Base de datos + Datos + Seguridad + Concurrencia todo funcionando.
 
 ---
 
@@ -41,10 +41,14 @@ docker-compose.yml
     │   ├─ Puerto: 1433
     │   └─ Volumen: sql-data (persiste datos)
     │
+    ├─ Contenedor: db-init  (se ejecuta una sola vez)
+    │   ├─ Imagen: mcr.microsoft.com/mssql-tools
+    │   └─ Crea la BD GathelDB si no existe (idempotente)
+    │
     └─ Contenedor: flyway
         ├─ Imagen: flyway/flyway:9.22.3-alpine
         ├─ Monta: ./src/database/flyway/migrations
-        └─ Ejecuta: V1, V2, V3, V4 automáticamente
+        └─ Ejecuta: V1, V2, V3, V4, V5 automáticamente
 ```
 
 **Lo importante**: 
@@ -63,13 +67,15 @@ docker-compose.yml
 
 **Salida esperada**:
 ```
-NAME              STATUS
-gathel-sql-server  Up 2 minutes (healthy)
-gathel-flyway      Exited (0)
+NAME                STATUS
+gathel-sql-server   Up 2 minutes (healthy)
+gathel-db-init      Exited (0)
+gathel-flyway       Exited (0)
 ```
 
 ✓ `sql-server`: Debe estar `Up` y `healthy`
-✓ `flyway`: Puede estar `Exited (0)` (completó y terminó)
+✓ `db-init`: Puede estar `Exited (0)` (creó la BD y terminó)
+✓ `flyway`: Puede estar `Exited (0)` (completó V1-V5 y terminó)
 
 ---
 
@@ -81,8 +87,8 @@ gathel-flyway      Exited (0)
 Verás algo como:
 ```
 flyway    | Flyway 9.22.3
-flyway    | Successfully applied 4 migrations to schema version 4.0.0
-flyway    | (execution time 45.234s)
+flyway    | Successfully applied 5 migrations to schema [dbo], now at version v5
+flyway    | (execution time ~60s)
 ```
 
 ---
@@ -151,10 +157,10 @@ mcr.microsoft.com/mssql/server:2022...  Up X minutes (healthy)
 ./scripts/docker-setup.sh sql
 
 # Dentro de sqlcmd:
-SELECT COUNT(*) FROM dbo.Player;          -- ~1000
-SELECT COUNT(*) FROM dbo.Proposition;     -- ~5000
-SELECT COUNT(*) FROM dbo.[Transaction];   -- ~5000+
-SELECT COUNT(*) FROM dbo.GameEvent;       -- ~250,000
+SELECT COUNT(*) FROM dbo.Player;          -- 1000
+SELECT COUNT(*) FROM dbo.Proposition;     -- 5000
+SELECT COUNT(*) FROM dbo.[Transaction];   -- ~111,000+
+SELECT COUNT(*) FROM dbo.GameEvent;       -- 250,000
 
 -- Ver roles
 SELECT name FROM sys.database_principals WHERE name LIKE 'db_gathel%';
@@ -298,15 +304,17 @@ Una vez que `./scripts/docker-setup.sh up` funcione:
    SELECT COUNT(*) FROM dbo.Player;
    ```
 
-2. **Ejecuta demos de Security Lab**:
-   ```bash
-   docker exec gathel-sql-server sqlcmd -U sa -P GathelPassword123!Secure -d GathelDB -i /path/to/01_master_key_cert.sql
-   ```
+2. **Ejecuta demos de Security Lab** (desde SSMS conectado a localhost:1433):
+   - `src/database/security-lab/01_master_key_cert.sql`
+   - `src/database/security-lab/02_roles_users.sql`
+   - etc. (ver `src/database/security-lab/README.md`)
 
-3. **Continúa con Fase 4** (Transacciones y Concurrencia)
+3. **Ejecuta demos de Concurrencia** (requiere múltiples ventanas SSMS):
+   - Ver instrucciones en `src/database/concurrency/README.md`
+   - Los SPs `usp_DL_*` y `usp_IL_*` ya están instalados por V5
 
 ---
 
-**Versión**: 1.0  
-**Fecha**: 15 Junio 2026  
-**Status**: ✅ Docker Compose configurado y listo
+**Versión**: 1.1  
+**Fecha**: 17 Junio 2026  
+**Status**: ✅ Docker Compose configurado — V1-V5 (Fases 1-4) completadas

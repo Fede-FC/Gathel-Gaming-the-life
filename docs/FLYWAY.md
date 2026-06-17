@@ -37,7 +37,9 @@ Ejecutar V3__seeding.sql (carga datos)
     ↓ Registrado en flyway_schema_history
 Ejecutar V4__security_setup.sql (configura seguridad)
     ↓ Registrado en flyway_schema_history
-BD Lista (v1.4)
+Ejecutar V5__concurrency_transactions.sql (SPs de concurrencia)
+    ↓ Registrado en flyway_schema_history
+BD Lista (v1.5)
 ```
 
 ---
@@ -93,23 +95,32 @@ Gathel-Gaming-the-life/
 ├── src/database/flyway/
 │   ├── flyway.conf              ← Configuración (variables de entorno)
 │   └── migrations/
-│       ├── V1__init_schema.sql              ← Creación de tablas
-│       ├── V2__stored_procedures.sql        ← Stored Procedures
-│       ├── V3__seeding.sql                  ← Datos iniciales
-│       └── V4__security_setup.sql           ← Seguridad, roles, RLS
+│       ├── V1__init_schema.sql                    ← Creación de tablas
+│       ├── V2__stored_procedures.sql              ← Stored Procedures
+│       ├── V3__seeding.sql                        ← Datos iniciales
+│       ├── V4__security_setup.sql                 ← Seguridad, roles, RLS
+│       └── V5__concurrency_transactions.sql       ← SPs de concurrencia y demos
 │
-└── src/database/security-lab/
-    ├── 01_master_key_cert.sql               ← Demo: Cifrado
-    ├── 02_roles_users.sql                   ← Demo: Roles
-    ├── 03_permissions_demo.sql              ← Demo: Permisos
-    ├── 04_data_masking.sql                  ← Demo: Masking
-    ├── 05_rls.sql                           ← Demo: RLS
+├── src/database/security-lab/
+│   ├── 01_master_key_cert.sql               ← Demo: Cifrado
+│   ├── 02_roles_users.sql                   ← Demo: Roles
+│   ├── 03_permissions_demo.sql              ← Demo: Permisos
+│   ├── 04_data_masking.sql                  ← Demo: Masking
+│   ├── 05_rls.sql                           ← Demo: RLS
+│   └── README.md
+│
+└── src/database/concurrency/
+    ├── 01_nested_transactions.sql           ← Demo: Transacciones anidadas (3 niveles)
+    ├── 02_deadlock_writes.sql               ← Demo: Deadlock entre escrituras
+    ├── 03_deadlock_read_write.sql           ← Demo: Deadlock lectura/escritura
+    ├── 04_deadlock_cyclic.sql               ← Demo: Deadlock cíclico T1→T2→T3→T1
+    ├── 05_isolation_levels.sql              ← Demo: 4 niveles de aislamiento
     └── README.md
 ```
 
 **Notas**:
-- Los scripts en `security-lab/` NO están versionados con Flyway
-- Son scripts de **demostración** que se ejecutan manualmente después de Flyway
+- Los scripts en `security-lab/` y `concurrency/` NO están versionados con Flyway
+- Son scripts de **demostración** que se ejecutan manualmente desde SSMS después de Flyway
 - Las migraciones reales en `migrations/` siguen la convención `V#__description.sql`
 
 ---
@@ -229,6 +240,19 @@ END
 - **Row-Level Security**: Tabla Transaction protegida
 - **Vistas de Seguridad**: vw_PlayerBalance, vw_MyTransactions
 
+### V5: concurrency_transactions.sql
+
+**Contenido**: Transacciones y Concurrencia de Fase 4
+
+- **Transacciones anidadas (3 niveles)**: `usp_Nested_L1/L2/L3` usando savepoints
+- **Deadlocks con escrituras**: `usp_DL_Write_SessionA/B` — orden inverso de locks
+- **Deadlock lectura/escritura**: `usp_DL_Read_PlayerSummary` + `usp_DL_Write_PredictionProcess`
+- **Deadlock cíclico**: `usp_DL_Cyclic_T1/T2/T3` — ciclo T1→T2→T3→T1
+- **Niveles de aislamiento**: 8 SPs (`usp_IL_*`) demostrando dirty read, non-repeatable read, phantom read y serializable
+- **Demos inline**: ejecuta Demo 1 (éxito) y Demo 2 (fallo en L3) durante la migración
+
+**Scripts de demo manual** (en `src/database/concurrency/`): ejecutar cada `.sql` desde SSMS abriendo múltiples ventanas según el README.md de la carpeta.
+
 ---
 
 ## Comandos Principales
@@ -243,16 +267,17 @@ flyway info
 **Salida esperada**:
 ```
 Flyway Report
-┌────────────────────────────────────────────────────────────────┐
-│ Schema: dbo                                                     │
-├─────┬─────────────────────┬───────────┬───┬──────────────────┤
-│ Ver │ Description         │ Type      │ Status│ Installed   │
-├─────┼─────────────────────┼───────────┼───┼──────────────────┤
-│ 1   │ init_schema         │ SQL       │ Success│ 2026-06-15 │
-│ 2   │ stored_procedures   │ SQL       │ Success│ 2026-06-15 │
-│ 3   │ seeding             │ SQL       │ Success│ 2026-06-15 │
-│ 4   │ security_setup      │ SQL       │ Pending│             │
-└─────┴─────────────────────┴───────────┴───┴──────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ Schema: dbo                                                             │
+├─────┬──────────────────────────────┬──────┬─────────┬─────────────────┤
+│ Ver │ Description                  │ Type │ Status  │ Installed       │
+├─────┼──────────────────────────────┼──────┼─────────┼─────────────────┤
+│ 1   │ init schema                  │ SQL  │ Success │ 2026-06-17      │
+│ 2   │ stored procedures            │ SQL  │ Success │ 2026-06-17      │
+│ 3   │ seeding                      │ SQL  │ Success │ 2026-06-17      │
+│ 4   │ security setup               │ SQL  │ Success │ 2026-06-17      │
+│ 5   │ concurrency transactions     │ SQL  │ Success │ 2026-06-17      │
+└─────┴──────────────────────────────┴──────┴─────────┴─────────────────┘
 ```
 
 ### 2. Ejecutar Migraciones
@@ -264,14 +289,13 @@ flyway migrate
 **Salida**:
 ```
 Flyway 9.22.3 by Redgate
-Schema version history table created successfully.
-Validating migrations in folder [./migrations]...
-  Validating [./migrations/V1__init_schema.sql]...
-  Validating [./migrations/V2__stored_procedures.sql]...
-  Validating [./migrations/V3__seeding.sql]...
-  Validating [./migrations/V4__security_setup.sql]...
-Starting migration of schema [dbo] to version 4 - security_setup
-  [dbo] Successfully applied 4 migrations to schema version 4.0 (execution time 45.234s)
+Successfully validated 5 migrations (execution time 00:00.XXXs)
+Migrating schema [dbo] to version "1 - init schema"
+Migrating schema [dbo] to version "2 - stored procedures"
+Migrating schema [dbo] to version "3 - seeding"
+Migrating schema [dbo] to version "4 - security setup"
+Migrating schema [dbo] to version "5 - concurrency transactions"
+Successfully applied 5 migrations to schema [dbo], now at version v5
 ```
 
 ### 3. Validar Integridad
@@ -312,8 +336,8 @@ V<VERSION>__<DESCRIPTION>.sql
 - `V2__stored_procedures.sql` ✓
 - `V3__seeding.sql` ✓
 - `V4__security_setup.sql` ✓
-- `V5__add_audit_logging.sql` ✓
-- `V6__fix_transaction_index.sql` ✓
+- `V5__concurrency_transactions.sql` ✓
+- `V6__add_audit_logging.sql` ✓
 
 ### Reglas
 

@@ -123,11 +123,11 @@ BEGIN
         FROM dbo.CurrencyType WHERE currency_code = 'POINTS';
 
         -- Total apostado por los ganadores (para calcular proporción)
-        SELECT @winner_total_stake = ISNULL(SUM(pred.amount_points), 0)
+        SELECT @winner_total_stake = ISNULL(SUM(pred.amount), 0)
         FROM dbo.Prediction pred
         INNER JOIN dbo.Proposition prop ON prop.proposition_id = pred.proposition_id
         WHERE pred.proposition_id = @proposition_id
-          AND pred.is_correct = 1;
+          AND pred.result = 'WON';
 
         IF @winner_total_stake = 0
             THROW 50200, '[L2] No hay predictores ganadores con apuesta en puntos.', 1;
@@ -139,10 +139,10 @@ BEGIN
         SELECT
             pred.player_id,
             @currency_type_id,
-            CAST((@distributable * CAST(pred.amount_points AS DECIMAL(18,4))
+            CAST((@distributable * CAST(pred.amount AS DECIMAL(18,4))
                   / @winner_total_stake) AS BIGINT),
             pl.balance_points
-                + CAST((@distributable * CAST(pred.amount_points AS DECIMAL(18,4))
+                + CAST((@distributable * CAST(pred.amount AS DECIMAL(18,4))
                         / @winner_total_stake) AS BIGINT),
             tt.transaction_type_id,
             'PROPOSITION',
@@ -153,7 +153,7 @@ BEGIN
         INNER JOIN dbo.Player pl            ON pl.player_id     = pred.player_id
         INNER JOIN dbo.TransactionType tt   ON tt.type_code     = 'WINNING'
         WHERE pred.proposition_id = @proposition_id
-          AND pred.is_correct     = 1;
+          AND pred.result         = 'WON';
 
         INSERT INTO dbo.ProcessLog
             (sp_name, action_description, affected_table, affected_record_id, status, executed_at, executed_by)
@@ -199,11 +199,19 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT OFF;    -- Necesario para que nuestros CATCH manejen el error
 
+    -- Patrón @@TRANCOUNT: si hay una transacción externa (ej. Flyway durante migración)
+    -- usamos un SAVEPOINT para no revertir lo que el llamador ya hizo.
+    -- Cuando se ejecuta standalone desde SSMS (@@TRANCOUNT = 0) se usa BEGIN TRANSACTION
+    -- real, demostrando el rollback completo de los 3 niveles.
+    DECLARE @TranCountOnEntry   INT = @@TRANCOUNT;
     DECLARE @total_pot_points   BIGINT;
     DECLARE @resolved_status_id INT;
 
     BEGIN TRY
-        BEGIN TRANSACTION;   -- Transacción principal (@@TRANCOUNT = 1)
+        IF @TranCountOnEntry = 0
+            BEGIN TRANSACTION;              -- Dueño real de la TX (modo demo standalone)
+        ELSE
+            SAVE TRANSACTION SaveL1;        -- Modo anidado: solo protegemos nuestro trabajo
 
         -- Validaciones
         IF NOT EXISTS (SELECT 1 FROM dbo.Proposition WHERE proposition_id = @proposition_id AND enabled = 1)
@@ -213,16 +221,16 @@ BEGIN
         FROM dbo.PropositionStatus WHERE status_code = 'RESOLVED';
 
         -- Acumular el pozo total en puntos
-        SELECT @total_pot_points = ISNULL(SUM(amount_points), 0)
+        SELECT @total_pot_points = ISNULL(SUM(amount), 0)
         FROM dbo.Prediction
         WHERE proposition_id = @proposition_id;
 
         -- Actualizar estado de predicciones (correcto / incorrecto)
         UPDATE dbo.Prediction
-        SET is_correct = CASE
-                            WHEN predicted_outcome = @is_fulfilled THEN 1
-                            ELSE 0
-                         END
+        SET result = CASE
+                        WHEN direction = @is_fulfilled THEN 'WON'
+                        ELSE 'LOST'
+                     END
         WHERE proposition_id = @proposition_id;
 
         -- Marcar proposición como resuelta
@@ -247,15 +255,16 @@ BEGIN
             @should_fail_l3   = @should_fail_l3;
         -- ────────────────────────────────────────────────────────────────────
 
-        COMMIT TRANSACTION;
+        IF @TranCountOnEntry = 0
+            COMMIT TRANSACTION;
         PRINT '[L1] Transacción completada con éxito. Proposición #' + CAST(@proposition_id AS NVARCHAR);
 
     END TRY
     BEGIN CATCH
-        -- Si L3 revirtió su savepoint y re-lanzó, llegamos aquí.
-        -- @@TRANCOUNT puede ser > 0 (la transacción del nivel 1 sigue abierta).
-        IF @@TRANCOUNT > 0
-            ROLLBACK TRANSACTION;
+        IF @TranCountOnEntry = 0 AND @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;               -- Rollback completo (standalone)
+        ELSE IF @TranCountOnEntry > 0 AND @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION SaveL1;        -- Solo revierte el trabajo de L1 (anidado)
 
         INSERT INTO dbo.ProcessLog
             (sp_name, action_description, affected_table, status, error_detail, executed_at, executed_by)
@@ -1246,14 +1255,16 @@ BEGIN
 
     BEGIN TRANSACTION;
     BEGIN TRY
-        DECLARE @predicted_outcome BIT = 1;
+        DECLARE @direction   BIT = 1;
+        DECLARE @currency_id INT;
+        SELECT @currency_id = currency_type_id FROM dbo.CurrencyType WHERE currency_code = 'POINTS';
 
         -- Este INSERT quedará BLOQUEADO mientras usp_IL_Serializable_Reader
         -- tenga abierta su transacción SERIALIZABLE con key-range locks.
         INSERT INTO dbo.Prediction
-            (player_id, proposition_id, predicted_outcome, amount_points, created_at, updated_at)
+            (player_id, proposition_id, direction, amount, currency_type_id, created_at, updated_at)
         VALUES
-            (@player_id, @proposition_id, @predicted_outcome, 1, GETUTCDATE(), GETUTCDATE());
+            (@player_id, @proposition_id, @direction, 1, @currency_id, GETUTCDATE(), GETUTCDATE());
 
         COMMIT TRANSACTION;
         PRINT 'Escritor: INSERT completado (el lector ya hizo COMMIT).';
@@ -1285,9 +1296,9 @@ GO
 ── DEMO 3: PHANTOM READ (REPEATABLE READ) ─────────────────────────────────────
   Ventana 1: EXEC dbo.usp_IL_PhantomRead @proposition_id = 1;
   Ventana 2 (durante los 6 s de espera):
-             INSERT INTO dbo.Prediction (player_id, proposition_id, predicted_outcome,
-                         amount_points, created_at, updated_at)
-             VALUES (3, 1, 0, 1, GETUTCDATE(), GETUTCDATE());
+             INSERT INTO dbo.Prediction (player_id, proposition_id, direction,
+                         amount, currency_type_id, created_at, updated_at)
+             VALUES (3, 1, 0, 1, (SELECT currency_type_id FROM dbo.CurrencyType WHERE currency_code='POINTS'), GETUTCDATE(), GETUTCDATE());
              COMMIT;
   Resultado: La segunda lectura de ventana 1 muestra una fila más.
 
