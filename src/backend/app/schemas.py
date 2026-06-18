@@ -109,6 +109,39 @@ class PlayerSearchResult(BaseModel):
     display_name: Optional[str]
 
 
+class FeedEvent(BaseModel):
+    event_id: int
+    type_code: str
+    event_description: str
+    actor_username: str
+    actor_display: Optional[str]
+    proposition_id: Optional[int]
+    proposition_title: Optional[str]
+    created_at: datetime
+
+
+class CurrencyWithRate(BaseModel):
+    currency_code: str
+    currency_name: str
+    currency_symbol: Optional[str]
+    rate_to_usd: Optional[float]
+
+
+class DepositRequest(BaseModel):
+    currency_code: str
+    amount: float
+
+
+class TransactionRecord(BaseModel):
+    amount: float
+    running_balance: float
+    description: Optional[str]
+    currency_code: str
+    currency_symbol: Optional[str]
+    transaction_type: str
+    created_at: datetime
+
+
 class PlacePredictionRequest(BaseModel):
     proposition_id: int
     amount: float

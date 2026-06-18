@@ -15,7 +15,9 @@ export default function Navbar() {
       <Link to="/" className="navbar-brand">🎮 Gathel</Link>
       <div className="navbar-links">
         <Link to="/">Dashboard</Link>
+        <Link to="/feed">Actividad</Link>
         <Link to="/propositions">Proposiciones</Link>
+        <Link to="/wallet">Billetera</Link>
         <Link to="/results">Resultados</Link>
       </div>
       <div className="navbar-user">

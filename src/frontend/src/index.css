@@ -222,6 +222,46 @@ td.lost { color: var(--danger); font-weight: 600; }
 /* ─── Inline button (no full width) ─── */
 .btn-inline { width: auto !important; }
 
+/* ─── Feed ─── */
+.feed-subtitle { color: var(--text-muted); font-size: .9rem; margin-bottom: 1.5rem; }
+.feed-list { display: flex; flex-direction: column; gap: .5rem; }
+.feed-item {
+  display: flex; gap: 1rem; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: .85rem 1rem;
+}
+.feed-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: .1rem; }
+.feed-body { flex: 1; }
+.feed-text { font-size: .92rem; line-height: 1.4; }
+.feed-prop-link { color: var(--primary); cursor: pointer; }
+.feed-prop-link:hover { text-decoration: underline; }
+.feed-time { font-size: .78rem; color: var(--text-muted); margin-top: .25rem; }
+
+/* ─── Wallet ─── */
+.wallet-section { margin-bottom: 2.5rem; }
+.section-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-size: .85rem; }
+.card-sub { font-size: .8rem; color: var(--text-muted); margin-top: .25rem; }
+
+.exchange-table { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.exchange-header, .exchange-row {
+  display: grid; grid-template-columns: 2fr 1fr 1.5fr 2fr;
+  padding: .65rem 1rem; gap: 1rem; font-size: .88rem;
+}
+.exchange-header { background: var(--surface2); color: var(--text-muted); font-weight: 600; font-size: .8rem; }
+.exchange-row { border-top: 1px solid var(--border); }
+.exchange-row:hover { background: var(--surface2); }
+.exchange-note { color: var(--text-muted); font-size: .8rem; font-style: italic; }
+
+.deposit-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; max-width: 560px; }
+.deposit-form { display: flex; flex-direction: column; gap: 1rem; }
+.deposit-row { display: flex; gap: 1rem; }
+.deposit-field { display: flex; flex-direction: column; gap: .3rem; flex: 1; }
+.deposit-equiv { background: var(--surface2); border-radius: 8px; padding: .6rem 1rem; font-size: .9rem; color: var(--text-muted); }
+
+/* ─── Transaction history ─── */
+.tx-in  { }
+.tx-out { }
+
 /* ─── Utils ─── */
 .loading { color: var(--text-muted); padding: 2rem 0; }
 .empty-msg { color: var(--text-muted); padding: 1rem 0; }

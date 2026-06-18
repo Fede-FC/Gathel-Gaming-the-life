@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, players, propositions, predictions
+from .routers import auth, players, propositions, predictions, feed, wallet
 
 app = FastAPI(
     title="Gathel Gaming API",
@@ -20,6 +20,8 @@ app.include_router(auth.router)
 app.include_router(players.router)
 app.include_router(propositions.router)
 app.include_router(predictions.router)
+app.include_router(feed.router)
+app.include_router(wallet.router)
 
 
 @app.get("/api/health")

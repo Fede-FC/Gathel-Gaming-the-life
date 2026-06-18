@@ -6,6 +6,8 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Propositions from './pages/Propositions'
 import Results from './pages/Results'
+import Feed from './pages/Feed'
+import Wallet from './pages/Wallet'
 
 function PrivateRoute({ children }) {
   const { player } = useAuth()
@@ -30,6 +32,8 @@ function AppRoutes() {
       <Route path="/" element={<PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>} />
       <Route path="/propositions" element={<PrivateRoute><Layout><Propositions /></Layout></PrivateRoute>} />
       <Route path="/results" element={<PrivateRoute><Layout><Results /></Layout></PrivateRoute>} />
+      <Route path="/feed" element={<PrivateRoute><Layout><Feed /></Layout></PrivateRoute>} />
+      <Route path="/wallet" element={<PrivateRoute><Layout><Wallet /></Layout></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
