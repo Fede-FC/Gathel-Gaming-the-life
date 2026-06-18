@@ -21,6 +21,17 @@ function usdEquiv(amount, rate) {
   return (amount * rate).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 }
 
+function rateDisplay(c) {
+  if (!c.rate_to_usd) return '—'
+  if (c.currency_code === 'USD') return 'moneda base'
+  if (c.rate_to_usd < 0.01) {
+    // Show inverse: "1 USD = ₡524"
+    const inverse = Math.round(1 / c.rate_to_usd)
+    return `1 USD = ${c.currency_symbol}${inverse.toLocaleString('es-CR')}`
+  }
+  return `1 ${c.currency_code} = ${usdEquiv(1, c.rate_to_usd)}`
+}
+
 export default function Wallet() {
   const [currencies, setCurrencies] = useState([])
   const [balances, setBalances]     = useState([])
@@ -117,13 +128,7 @@ export default function Wallet() {
               <span>{c.currency_name}</span>
               <span><code>{c.currency_code}</code></span>
               <span>{c.rate_to_usd ? c.rate_to_usd.toFixed(4) : '—'}</span>
-              <span>
-                {c.rate_to_usd
-                  ? c.currency_code === 'USD'
-                    ? '1 USD = 1 USD'
-                    : `1 ${c.currency_code} = ${usdEquiv(1, c.rate_to_usd)}`
-                  : '—'}
-              </span>
+              <span>{rateDisplay(c)}</span>
             </div>
           ))}
           <div className="exchange-row exchange-note">
