@@ -23,9 +23,27 @@ export default function Dashboard() {
           <div className="card-label">Balance de Puntos</div>
           <div className="card-value">{data.balance_points.toLocaleString()} pts</div>
         </div>
+
+        {data.money_balances && data.money_balances.length > 0
+          ? data.money_balances.map((mb) => (
+            <div className="card" key={mb.currency_code}>
+              <div className="card-label">Balance {mb.currency_code}</div>
+              <div className="card-value">
+                {mb.currency_symbol}{mb.current_balance.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          ))
+          : (
+            <div className="card">
+              <div className="card-label">Balance Dinero Real</div>
+              <div className="card-value card-value--muted">Sin fondos</div>
+            </div>
+          )
+        }
+
         <div className="card">
           <div className="card-label">Última actividad</div>
-          <div className="card-value">
+          <div className="card-value card-value--sm">
             {data.last_transaction_date
               ? new Date(data.last_transaction_date).toLocaleDateString('es-CR')
               : '—'}

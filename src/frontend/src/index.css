@@ -146,6 +146,86 @@ button { cursor: pointer; border-radius: 8px; font-size: .9rem; transition: back
 td.won { color: var(--success); font-weight: 600; }
 td.lost { color: var(--danger); font-weight: 600; }
 
+/* ─── Autocomplete ─── */
+.autocomplete { position: relative; }
+.autocomplete-list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  list-style: none; margin: 2px 0 0; padding: .25rem 0; max-height: 220px; overflow-y: auto;
+}
+.autocomplete-list li {
+  padding: .5rem .9rem; cursor: pointer; font-size: .9rem;
+}
+.autocomplete-list li:hover { background: var(--surface); }
+.ac-display { color: var(--text-muted); }
+
+/* ─── Incoming actions ─── */
+.incoming-actions { display: flex; gap: .75rem; margin-top: .75rem; }
+.btn-accept {
+  background: var(--success); color: #fff; border: none;
+  padding: .4rem 1rem; border-radius: 8px;
+}
+.btn-accept:hover { opacity: .85; }
+.btn-reject-prop {
+  background: transparent; color: var(--danger); border: 1px solid var(--danger);
+  padding: .4rem 1rem; border-radius: 8px;
+}
+.btn-reject-prop:hover { background: var(--danger); color: #fff; }
+
+/* ─── Prop ID chip ─── */
+.prop-id { font-family: monospace; background: var(--surface2); padding: .1rem .45rem; border-radius: 4px; font-size: .8rem; }
+
+/* ─── Badge row ─── */
+.badge-row { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+/* ─── Modal subtitle ─── */
+.modal-subtitle { color: var(--text-muted); font-size: .9rem; margin-bottom: 1rem; }
+
+/* ─── Tabs ─── */
+.tabs { display: flex; gap: .5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.tab-btn {
+  background: transparent; border: none; color: var(--text-muted);
+  padding: .6rem 1.25rem; border-bottom: 2px solid transparent;
+  border-radius: 0; font-size: .95rem; cursor: pointer; transition: color .2s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-active { color: var(--primary) !important; border-bottom-color: var(--primary) !important; font-weight: 600; }
+
+/* ─── Status badges ─── */
+.badge {
+  display: inline-block; padding: .2rem .65rem; border-radius: 20px;
+  font-size: .75rem; font-weight: 600; white-space: nowrap;
+}
+.badge-pending  { background: #3a3010; color: #f0c040; }
+.badge-active   { background: #0d3320; color: #4caf50; }
+.badge-closed   { background: #1a1a40; color: #7878d0; }
+.badge-resolved { background: #10302a; color: #26c6a0; }
+.badge-rejected { background: #3a1010; color: #f44336; }
+
+/* ─── Proposition header with badge ─── */
+.proposition-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: .4rem; }
+.proposition-header .proposition-title { margin-bottom: 0; }
+
+/* ─── Balance hint in modal ─── */
+.balance-hint {
+  font-size: .82rem; color: var(--text-muted);
+  background: var(--surface2); border-radius: 6px; padding: .4rem .75rem;
+}
+
+/* ─── Locked input ─── */
+.input-locked { opacity: .6; cursor: not-allowed; }
+
+/* ─── Card value variants ─── */
+.card-value--muted { color: var(--text-muted); font-size: 1.1rem; }
+.card-value--sm { font-size: 1.25rem; }
+
+/* ─── Inline button (no full width) ─── */
+.btn-inline { width: auto !important; }
+
 /* ─── Utils ─── */
 .loading { color: var(--text-muted); padding: 2rem 0; }
+.empty-msg { color: var(--text-muted); padding: 1rem 0; }
 .error-msg { color: var(--danger); font-size: .9rem; }
+.success-msg { color: var(--success); font-size: .9rem; padding: .5rem 0; }
+.link-subtle { color: var(--primary); text-decoration: none; }
+.link-subtle:hover { text-decoration: underline; }

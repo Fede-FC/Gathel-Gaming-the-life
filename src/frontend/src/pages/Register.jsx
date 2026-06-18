@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import api from '../api/client'
 
-export default function Login() {
+export default function Register() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ username: '', password: '' })
+  const [form, setForm] = useState({ username: '', email: '', password: '', display_name: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -14,10 +15,16 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
+      await api.post('/auth/register', {
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        display_name: form.display_name || undefined,
+      })
       await login(form.username, form.password)
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al iniciar sesión')
+      setError(err.response?.data?.detail || 'Error al registrar usuario')
     } finally {
       setLoading(false)
     }
@@ -26,32 +33,45 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1>🎮 Gathel</h1>
-        <p className="login-subtitle">Gaming the Life</p>
+        <h1>Gathel</h1>
+        <p className="login-subtitle">Crear cuenta</p>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
-            placeholder="Usuario"
+            placeholder="Usuario *"
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
             required
           />
           <input
+            type="email"
+            placeholder="Email *"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Nombre para mostrar (opcional)"
+            value={form.display_name}
+            onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+          />
+          <input
             type="password"
-            placeholder="Contraseña"
+            placeholder="Contraseña *"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
+            minLength={6}
           />
           {error && <p className="error-msg">{error}</p>}
           <button type="submit" disabled={loading}>
-            {loading ? 'Ingresando...' : 'Ingresar'}
+            {loading ? 'Creando cuenta...' : 'Registrarse'}
           </button>
         </form>
         <p className="login-hint">
-          ¿No tienes cuenta? <Link to="/register" className="link-subtle">Regístrate</Link>
+          ¿Ya tienes cuenta? <Link to="/login" className="link-subtle">Inicia sesión</Link>
         </p>
-        <p className="login-hint">Demo: <strong>demo_admin</strong> / <strong>Password123!</strong></p>
       </div>
     </div>
   )

@@ -8,6 +8,7 @@ from ..models import Player
 from ..schemas import (
     PropositionActive, PropositionResult,
     CreatePropositionRequest, CreatePropositionResponse,
+    MyProposition, IncomingProposition, AcceptPropositionRequest,
 )
 
 router = APIRouter(prefix="/api/propositions", tags=["propositions"])
@@ -63,6 +64,118 @@ def get_results(
         )
         for r in rows
     ]
+
+
+@router.get("/mine", response_model=List[MyProposition])
+def get_my_propositions(
+    player_id: int = Depends(get_current_player_id),
+    db: Session = Depends(get_db),
+):
+    result = db.execute(
+        text("""
+            SELECT p.proposition_id, p.title, p.description,
+                   p.created_at, p.prediction_ends_at,
+                   ps.status_code, t.username AS target_username
+            FROM dbo.Proposition p
+            JOIN dbo.PropositionStatus ps ON p.status_id = ps.status_id
+            JOIN dbo.Player t ON p.target_player_id = t.player_id
+            WHERE p.creator_player_id = :pid AND p.enabled = 1
+            ORDER BY p.created_at DESC
+        """),
+        {"pid": player_id},
+    )
+    return [
+        MyProposition(
+            proposition_id=r.proposition_id,
+            title=r.title,
+            description=r.description,
+            created_at=r.created_at,
+            prediction_ends_at=r.prediction_ends_at,
+            status_code=r.status_code,
+            target_username=r.target_username,
+        )
+        for r in result.fetchall()
+    ]
+
+
+@router.get("/incoming", response_model=List[IncomingProposition])
+def get_incoming_propositions(
+    player_id: int = Depends(get_current_player_id),
+    db: Session = Depends(get_db),
+):
+    result = db.execute(
+        text("""
+            SELECT p.proposition_id, p.title, p.description,
+                   p.created_at, p.prediction_ends_at, p.is_accepted_by_target,
+                   ps.status_code, c.username AS creator_username
+            FROM dbo.Proposition p
+            JOIN dbo.PropositionStatus ps ON p.status_id = ps.status_id
+            JOIN dbo.Player c ON p.creator_player_id = c.player_id
+            WHERE p.target_player_id = :pid AND p.enabled = 1
+              AND ps.status_code IN ('PENDING', 'ACTIVE', 'PREDICTION_CLOSED')
+            ORDER BY p.created_at DESC
+        """),
+        {"pid": player_id},
+    )
+    return [
+        IncomingProposition(
+            proposition_id=r.proposition_id,
+            title=r.title,
+            description=r.description,
+            created_at=r.created_at,
+            prediction_ends_at=r.prediction_ends_at,
+            status_code=r.status_code,
+            is_accepted_by_target=bool(r.is_accepted_by_target),
+            creator_username=r.creator_username,
+        )
+        for r in result.fetchall()
+    ]
+
+
+@router.post("/{proposition_id}/accept")
+def accept_proposition(
+    proposition_id: int,
+    body: AcceptPropositionRequest,
+    player_id: int = Depends(get_current_player_id),
+    db: Session = Depends(get_db),
+):
+    try:
+        db.execute(
+            text("""
+                EXEC dbo.usp_AcceptProposition
+                    @proposition_id     = :prop_id,
+                    @target_player_id   = :player_id,
+                    @prediction_ends_at = :ends_at
+            """),
+            {"prop_id": proposition_id, "player_id": player_id, "ends_at": body.prediction_ends_at},
+        )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Proposición aceptada. Ya está disponible para predicciones."}
+
+
+@router.post("/{proposition_id}/reject")
+def reject_proposition(
+    proposition_id: int,
+    player_id: int = Depends(get_current_player_id),
+    db: Session = Depends(get_db),
+):
+    try:
+        db.execute(
+            text("""
+                EXEC dbo.usp_RejectProposition
+                    @proposition_id   = :prop_id,
+                    @target_player_id = :player_id
+            """),
+            {"prop_id": proposition_id, "player_id": player_id},
+        )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Proposición rechazada. Se descontó 1 punto."}
 
 
 @router.post("", response_model=CreatePropositionResponse, status_code=201)
