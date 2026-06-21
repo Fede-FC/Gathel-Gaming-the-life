@@ -12,7 +12,7 @@ GO
 -- Para demostrar cifrado a nivel T-SQL (requisito del caso)
 -- ==============================================================================
 
--- Crear Master Key si no existe
+
 IF NOT EXISTS (SELECT * FROM sys.symmetric_keys WHERE name = '##MS_DatabaseMasterKey##')
 BEGIN
     CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'GathelMasterKey2026!Secure';
@@ -20,7 +20,7 @@ BEGIN
 END
 GO
 
--- Crear Certificate
+
 IF NOT EXISTS (SELECT * FROM sys.certificates WHERE name = 'gathel_cert')
 BEGIN
     CREATE CERTIFICATE gathel_cert
@@ -30,7 +30,6 @@ BEGIN
 END
 GO
 
--- Crear Symmetric Key cifrado con Certificate
 IF NOT EXISTS (SELECT * FROM sys.symmetric_keys WHERE name = 'gathel_sym_key')
 BEGIN
     CREATE SYMMETRIC KEY gathel_sym_key
