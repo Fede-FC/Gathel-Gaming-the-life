@@ -143,8 +143,12 @@ Modelos de IA disponibles para revisiones.
 | `model_code` | VARCHAR(50) | UNIQUE, NOT NULL | Código (ej: GPT4, CLAUDE3, etc.) |
 | `model_name` | VARCHAR(100) | NOT NULL | Nombre del modelo |
 | `version` | VARCHAR(20) | NOT NULL | Versión (ej: 4.0, 3.5) |
+| `ai_provider_id` | INT | FK(AIProvider), NOT NULL | Proveedor al que pertenece el modelo |
 | `enabled` | BIT | NOT NULL, DEFAULT 1 | Indica si está activa |
 | `created_at` | DATETIME2 | NOT NULL, DEFAULT GETUTCDATE() | Fecha de creación |
+
+**Cambios (V7):**
+- ✨ AGREGADO: `ai_provider_id` FK(AIProvider) — establece la relación entre modelo y proveedor, previniendo combinaciones inválidas en `AIReviewLog`
 
 ---
 
@@ -231,7 +235,7 @@ Tokens de acceso a redes sociales (rotan entre sesiones).
 | `access_token_encrypted` | VARCHAR(500) | NOT NULL | Token encriptado (Always Encrypted) |
 | `refresh_token_encrypted` | VARCHAR(500) | | Token de refresco (si aplica) |
 | `token_expires_at` | DATETIME2 | | Fecha de expiración |
-| `encryption_key_id` | INT | | Referencia a la key que cifró el token (key store) |
+| ~~`encryption_key_id`~~ | ~~INT~~  | ~~eliminado en V7~~ | Columna huérfana sin FK — eliminada. Si se implementa KeyStore formal, se agrega en nueva migración |
 | `last_used_at` | DATETIME2 | | Última vez que se usó el token (detectar inactivos) |
 | `rotation_count` | INT | NOT NULL, DEFAULT 0 | Número de rotaciones del token (auditoría) |
 | `is_active` | BIT | NOT NULL, DEFAULT 1 | Token activo |
@@ -297,7 +301,7 @@ Proposiciones/predicciones que crean los jugadores.
 
 ---
 
-### **Vote** ⭐ (MODIFICADO - Agregar checksum)
+### **Vote** ⭐ (MODIFICADO - Agregar checksum y direction)
 Votos de jugadores sobre proposiciones.
 
 | Campo | Tipo | Constraints | Descripción |
@@ -305,8 +309,12 @@ Votos de jugadores sobre proposiciones.
 | `vote_id` | BIGINT | PK, IDENTITY | Identificador único |
 | `proposition_id` | INT | FK(Proposition), NOT NULL | Proposición votada |
 | `player_id` | INT | FK(Player), NOT NULL | Jugador que votó |
+| `direction` | BIT | NOT NULL, DEFAULT 1 | 1: vota a favor (se cumple), 0: vota en contra |
 | `created_at` | DATETIME2 | NOT NULL, DEFAULT GETUTCDATE() | Fecha del voto |
 | `checksum` | VARCHAR(64) | | SHA-256 para auditoría |
+
+**Cambios (V7):**
+- ✨ AGREGADO: `direction BIT NOT NULL DEFAULT 1` — distingue votos a favor de votos en contra
 
 **Índices:**
 - FK(proposition_id)
@@ -356,7 +364,7 @@ Predicciones de jugadores sobre proposiciones.
 
 ---
 
-### **PropositionEvidence** ⭐ (MODIFICADO - Agregar post_id)
+### **PropositionEvidence** ⭐ (MODIFICADO - Agregar post_id y CHECK)
 Evidencia multimedia para validación de proposiciones.
 
 | Campo | Tipo | Constraints | Descripción |
@@ -370,8 +378,12 @@ Evidencia multimedia para validación de proposiciones.
 | `created_at` | DATETIME2 | NOT NULL, DEFAULT GETUTCDATE() | Fecha de captura |
 | `checksum` | VARCHAR(64) | | SHA-256 para auditoría |
 
+**Constraints:**
+- `CK_Evidence_HasReference`: `CHECK (post_id IS NOT NULL OR evidence_url IS NOT NULL)` — al menos una referencia debe existir
+
 **Cambios:**
 - ✨ AGREGADO: `post_id` (identificador único del post en la red social)
+- ✨ AGREGADO (V7): `CK_Evidence_HasReference` — previene insertar evidencia vacía sin URL ni post_id
 
 **Índices:**
 - FK(proposition_id)
@@ -698,7 +710,7 @@ CREATE SECURITY POLICY dbo.VoteSecurityPolicy
 | `idx_gameevent_proposition` | GameEvent | (proposition_id, created_at DESC) INCLUDE (event_type_id, actor_player_id) | Auditoría por proposición |
 | `idx_gameevent_event_type` | GameEvent | (event_type_id, created_at DESC) INCLUDE (proposition_id, actor_player_id) | Eventos por tipo |
 | `idx_vote_unique` | Vote | UNIQUE (proposition_id, player_id) | Un voto por jugador/proposición |
-| `idx_vote_proposition` | Vote | (proposition_id) INCLUDE (player_id) | Contar votos |
+| `idx_vote_proposition` | Vote | (proposition_id) INCLUDE (player_id, direction) | Contar votos a favor/en contra |
 | `idx_proposition_audit_prop_date` | PropositionAudit | (proposition_id, changed_at DESC) | Auditoría por proposición |
 | `idx_proposition_audit_changed_by` | PropositionAudit | (changed_by, changed_at DESC) | Auditoría por usuario |
 | `idx_proposition_audit_field` | PropositionAudit | (field_name, changed_at DESC) | Auditoría por campo |

@@ -140,3 +140,21 @@ Define los SPs de demostración de concurrencia y transacciones anidadas.
 Migración auxiliar que normaliza las contraseñas del usuario `demo_admin` y otros usuarios de seeding para garantizar que el hash almacenado en la BD coincida con lo que genera el backend en Python (SHA2-256 sobre UTF-16-LE).
 
 **Por qué existe esta migración:** durante el seeding (V3) las contraseñas se generaron con `HASHBYTES` directamente en SQL. Cuando el backend Python hace login, usa su propia función `hash_password()`. Esta migración asegura que ambos produzcan el mismo hash para las cuentas de demo, permitiendo que el login desde el frontend funcione correctamente.
+
+---
+
+## V7__design_fixes.sql
+
+Corrige cuatro errores de diseño identificados en revisión post-implementación. Todos los cambios son aditivos o correctivos — no rompen datos existentes.
+
+| # | Tabla | Problema | Corrección |
+|---|-------|---------|------------|
+| 1 | `Vote` | Faltaba `direction` — no se sabía si el voto era a favor o en contra | `ALTER TABLE ADD direction BIT NOT NULL DEFAULT 1` + rellena datos existentes |
+| 2 | `AIModel` | Sin relación con `AIProvider` — `AIReviewLog` podía registrar modelo+proveedor incompatibles | `ALTER TABLE ADD ai_provider_id INT NOT NULL FK(AIProvider)` + trigger de validación en `AIReviewLog` |
+| 3 | `PropositionEvidence` | Ambos `post_id` y `evidence_url` eran `NULL` — se podía insertar evidencia vacía | `ADD CONSTRAINT CK_Evidence_HasReference CHECK (post_id IS NOT NULL OR evidence_url IS NOT NULL)` |
+| 4 | `SocialAccountSession` | `encryption_key_id` era un `INT` sin FK a ninguna tabla | `ALTER TABLE DROP COLUMN encryption_key_id` |
+
+**Notas técnicas:**
+- `Vote.direction` se agrega como `NULL` primero, se pobla con `ABS(CHECKSUM(NEWID())) % 2` para los datos del seeding, y luego se convierte a `NOT NULL`
+- `AIModel.ai_provider_id` se agrega como `NULL`, se actualiza con los proveedores conocidos (Anthropic → CLAUDE*, OpenAI → GPT4O, Google → GEMINI*), y luego se convierte a `NOT NULL`
+- El trigger `trg_AIReviewLog_ProviderConsistency` valida en cada INSERT que el `ai_provider_id` del log coincida con el del modelo usado
